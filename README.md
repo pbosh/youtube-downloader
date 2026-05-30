@@ -51,3 +51,7 @@ cd youtube-downloader && npm run cli -- "https://www.youtube.com/watch?v=VIDEO_I
 - Single videos only (no playlists).
 - YouTube source audio is often lower than 320 kbps; files are encoded at 320 kbps as requested.
 - Thumbnail and metadata are embedded when available.
+
+## Desktop app
+
+See [docs/desktop-app.md](docs/desktop-app.md) for guidance on packaging this as a downloadable desktop app.

@@ -33,7 +33,20 @@ function sendSse(
 }
 
 function parseKind(value: unknown): DownloadKind {
-  return value === "video" ? "video" : "mp3";
+  if (value === "video") return "video";
+  if (value === "thumb") return "thumb";
+  return "mp3";
+}
+
+function startingMessage(kind: DownloadKind): string {
+  switch (kind) {
+    case "video":
+      return "Starting video download...";
+    case "thumb":
+      return "Starting thumbnail download...";
+    default:
+      return "Starting download...";
+  }
 }
 
 const app = express();
@@ -70,8 +83,7 @@ app.get("/api/download", async (req, res) => {
   sendSse(res, "progress", {
     phase: "starting",
     percent: 0,
-    message:
-      kind === "video" ? "Starting video download..." : "Starting download...",
+    message: startingMessage(kind),
   });
 
   try {

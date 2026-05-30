@@ -196,6 +196,7 @@
         />
         <button type="submit" id="mp3-btn">Download MP3</button>
         <button type="button" id="video-btn">Download MP4</button>
+        <button type="button" id="thumb-btn">Download Thumb</button>
       </form>
 
       <section class="status" id="status" aria-live="polite">
@@ -214,7 +215,8 @@
       const urlInput = document.getElementById("url");
       const mp3Btn = document.getElementById("mp3-btn");
       const videoBtn = document.getElementById("video-btn");
-      const actionButtons = [mp3Btn, videoBtn];
+      const thumbBtn = document.getElementById("thumb-btn");
+      const actionButtons = [mp3Btn, videoBtn, thumbBtn];
       const status = document.getElementById("status");
       const progressBar = document.getElementById("progress-bar");
       const statusText = document.getElementById("status-text");
@@ -266,7 +268,9 @@
           case "starting":
             return "Starting";
           case "download":
-            return kind === "video" ? "Downloading video" : "Downloading";
+            if (kind === "video") return "Downloading video";
+            if (kind === "thumb") return "Downloading thumbnail";
+            return "Downloading";
           case "extract":
             return "Converting to MP3";
           case "merge":
@@ -351,6 +355,14 @@
           return;
         }
         startDownload("video");
+      });
+
+      thumbBtn.addEventListener("click", () => {
+        if (!urlInput.value.trim()) {
+          urlInput.focus();
+          return;
+        }
+        startDownload("thumb");
       });
     </script>
   </body>

@@ -2,7 +2,7 @@ import { spawn } from "node:child_process";
 import { access } from "node:fs/promises";
 import path from "node:path";
 
-export type DownloadKind = "mp3" | "video";
+export type DownloadKind = "mp3" | "video" | "thumb";
 export type DownloadPhase = "download" | "extract" | "merge" | "done";
 
 export interface DownloadProgress {
@@ -82,14 +82,25 @@ function buildArgs(
     ];
   }
 
+  if (kind === "video") {
+    return [
+      ...common.slice(0, 3),
+      "-f",
+      "bv*+ba/b",
+      "--merge-output-format",
+      "mp4",
+      "--add-metadata",
+      "--embed-thumbnail",
+      ...common.slice(3),
+    ];
+  }
+
   return [
     ...common.slice(0, 3),
-    "-f",
-    "bv*+ba/b",
-    "--merge-output-format",
-    "mp4",
-    "--add-metadata",
-    "--embed-thumbnail",
+    "--skip-download",
+    "--write-thumbnail",
+    "--convert-thumbnails",
+    "jpg",
     ...common.slice(3),
   ];
 }
@@ -102,6 +113,7 @@ export async function downloadMedia(
   const args = buildArgs(options.kind, options.url, outputTemplate);
 
   const printedLines: string[] = [];
+  const startedAt = Date.now();
 
   await new Promise<void>((resolve, reject) => {
     const proc = spawn(ytDlp, args, { stdio: ["ignore", "pipe", "pipe"] });
@@ -169,12 +181,16 @@ export async function downloadMedia(
     });
   });
 
-  const outputPath =
+  let outputPath =
     printedLines.find(
       (line) => path.isAbsolute(line) && path.extname(line) !== "",
     ) ?? "";
   const title =
     printedLines.find((line) => line !== outputPath && line.length > 0) ?? "";
+
+  if (!outputPath && options.kind === "thumb") {
+    outputPath = await findNewestImageSince(options.outputDir, startedAt - 1000);
+  }
 
   if (!outputPath) {
     throw new Error("Download finished but no output file was reported.");
@@ -200,6 +216,30 @@ export async function downloadVideo(
   options: Omit<DownloadOptions, "kind">,
 ): Promise<DownloadResult> {
   return downloadMedia({ ...options, kind: "video" });
+}
+
+async function findNewestImageSince(
+  outputDir: string,
+  sinceMs: number,
+): Promise<string> {
+  const { readdir, stat } = await import("node:fs/promises");
+  const extensions = new Set([".jpg", ".jpeg", ".png", ".webp"]);
+  let newestPath = "";
+  let newestTime = sinceMs;
+
+  for (const entry of await readdir(outputDir)) {
+    const ext = path.extname(entry).toLowerCase();
+    if (!extensions.has(ext)) continue;
+
+    const fullPath = path.join(outputDir, entry);
+    const fileStat = await stat(fullPath);
+    if (fileStat.mtimeMs >= newestTime) {
+      newestTime = fileStat.mtimeMs;
+      newestPath = fullPath;
+    }
+  }
+
+  return newestPath;
 }
 
 export async function ensureOutputDir(outputDir: string): Promise<string> {
