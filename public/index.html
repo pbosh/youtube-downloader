@@ -194,7 +194,8 @@
           required
           autocomplete="off"
         />
-        <button type="submit" id="submit-btn">Download MP3</button>
+        <button type="submit" id="mp3-btn">Download MP3</button>
+        <button type="button" id="video-btn">Download MP4</button>
       </form>
 
       <section class="status" id="status" aria-live="polite">
@@ -211,7 +212,9 @@
     <script>
       const form = document.getElementById("download-form");
       const urlInput = document.getElementById("url");
-      const submitBtn = document.getElementById("submit-btn");
+      const mp3Btn = document.getElementById("mp3-btn");
+      const videoBtn = document.getElementById("video-btn");
+      const actionButtons = [mp3Btn, videoBtn];
       const status = document.getElementById("status");
       const progressBar = document.getElementById("progress-bar");
       const statusText = document.getElementById("status-text");
@@ -219,6 +222,22 @@
       const errorBox = document.getElementById("error");
 
       let activeSource = null;
+      let finished = false;
+
+      function normalizeUrl(input) {
+        let url = input.trim();
+        if (/^ttps:\/\//i.test(url)) url = `h${url}`;
+        if (/^ttp:\/\//i.test(url)) url = `h${url}`;
+        if (!/^https?:\/\//i.test(url)) {
+          url = `https://${url.replace(/^\/+/, "")}`;
+        }
+        return url;
+      }
+
+      function showError(message) {
+        errorBox.textContent = message;
+        errorBox.classList.add("visible");
+      }
 
       function resetUi() {
         status.classList.remove("visible");
@@ -236,14 +255,22 @@
         statusText.textContent = message;
       }
 
-      function phaseLabel(phase) {
+      function setButtonsDisabled(disabled) {
+        for (const button of actionButtons) {
+          button.disabled = disabled;
+        }
+      }
+
+      function phaseLabel(phase, kind) {
         switch (phase) {
           case "starting":
             return "Starting";
           case "download":
-            return "Downloading";
+            return kind === "video" ? "Downloading video" : "Downloading";
           case "extract":
             return "Converting to MP3";
+          case "merge":
+            return "Merging video";
           case "done":
             return "Done";
           default:
@@ -251,11 +278,11 @@
         }
       }
 
-      form.addEventListener("submit", (event) => {
-        event.preventDefault();
-
-        const url = urlInput.value.trim();
+      function startDownload(kind) {
+        const url = normalizeUrl(urlInput.value);
         if (!url) return;
+
+        urlInput.value = url;
 
         if (activeSource) {
           activeSource.close();
@@ -263,18 +290,19 @@
         }
 
         resetUi();
-        submitBtn.disabled = true;
+        setButtonsDisabled(true);
+        finished = false;
 
         const source = new EventSource(
-          `/api/download?url=${encodeURIComponent(url)}`,
+          `/api/download?url=${encodeURIComponent(url)}&kind=${encodeURIComponent(kind)}`,
         );
         activeSource = source;
 
         source.addEventListener("progress", (event) => {
           const data = JSON.parse(event.data);
-          const label = phaseLabel(data.phase);
+          const label = phaseLabel(data.phase, kind);
           const percent =
-            data.phase === "extract"
+            data.phase === "extract" || data.phase === "merge"
               ? 100
               : typeof data.percent === "number"
                 ? data.percent
@@ -284,27 +312,45 @@
         });
 
         source.addEventListener("complete", (event) => {
+          finished = true;
           const data = JSON.parse(event.data);
           setProgress(100, "Saved to Desktop");
           result.innerHTML = `<strong>${data.title}</strong>${data.fileName}`;
           result.classList.add("visible");
           source.close();
           activeSource = null;
-          submitBtn.disabled = false;
+          setButtonsDisabled(false);
         });
 
-        source.addEventListener("error", (event) => {
-          if (event.data) {
-            const data = JSON.parse(event.data);
-            errorBox.textContent = data.message || "Download failed.";
-          } else {
-            errorBox.textContent = "Connection lost. Please try again.";
-          }
-          errorBox.classList.add("visible");
+        source.addEventListener("failed", (event) => {
+          finished = true;
+          const data = JSON.parse(event.data);
+          showError(data.message || "Download failed.");
           source.close();
           activeSource = null;
-          submitBtn.disabled = false;
+          setButtonsDisabled(false);
         });
+
+        source.onerror = () => {
+          if (finished || source.readyState === EventSource.CLOSED) return;
+          showError("Connection lost. Please try again.");
+          source.close();
+          activeSource = null;
+          setButtonsDisabled(false);
+        };
+      }
+
+      form.addEventListener("submit", (event) => {
+        event.preventDefault();
+        startDownload("mp3");
+      });
+
+      videoBtn.addEventListener("click", () => {
+        if (!urlInput.value.trim()) {
+          urlInput.focus();
+          return;
+        }
+        startDownload("video");
       });
     </script>
   </body>

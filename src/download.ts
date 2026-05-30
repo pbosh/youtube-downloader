@@ -2,7 +2,8 @@ import { spawn } from "node:child_process";
 import { access } from "node:fs/promises";
 import path from "node:path";
 
-export type DownloadPhase = "download" | "extract" | "done" | "error";
+export type DownloadKind = "mp3" | "video";
+export type DownloadPhase = "download" | "extract" | "merge" | "done";
 
 export interface DownloadProgress {
   phase: DownloadPhase;
@@ -13,6 +14,7 @@ export interface DownloadProgress {
 export interface DownloadOptions {
   url: string;
   outputDir: string;
+  kind: DownloadKind;
   onProgress?: (progress: DownloadProgress) => void;
 }
 
@@ -24,7 +26,7 @@ export interface DownloadResult {
 const DOWNLOAD_RE =
   /\[download\]\s+(\d+(?:\.\d+)?)%\s+of\s+~?\s*([\d.]+\s*\w+)/i;
 const EXTRACT_RE = /\[ExtractAudio\]\s+Destination:\s+(.+)/i;
-const MERGE_RE = /\[Merger\]\s+Merging formats into "(.+)"/i;
+const MERGER_RE = /\[Merger\]\s+Merging formats into "(.+)"/i;
 
 async function findYtDlp(): Promise<string> {
   const candidates = ["yt-dlp", "yt-dlp.exe"];
@@ -49,23 +51,15 @@ async function findYtDlp(): Promise<string> {
   );
 }
 
-export async function downloadMp3(
-  options: DownloadOptions,
-): Promise<DownloadResult> {
-  const ytDlp = await findYtDlp();
-  const outputTemplate = path.join(options.outputDir, "%(title)s.%(ext)s");
-
-  const args = [
-    options.url,
+function buildArgs(
+  kind: DownloadKind,
+  url: string,
+  outputTemplate: string,
+): string[] {
+  const common = [
+    url,
     "--no-playlist",
     "--newline",
-    "-x",
-    "--audio-format",
-    "mp3",
-    "--audio-quality",
-    "320K",
-    "--embed-thumbnail",
-    "--add-metadata",
     "-o",
     outputTemplate,
     "--print",
@@ -74,8 +68,40 @@ export async function downloadMp3(
     "title",
   ];
 
-  let outputPath = "";
-  let title = "";
+  if (kind === "mp3") {
+    return [
+      ...common.slice(0, 3),
+      "-x",
+      "--audio-format",
+      "mp3",
+      "--audio-quality",
+      "320K",
+      "--embed-thumbnail",
+      "--add-metadata",
+      ...common.slice(3),
+    ];
+  }
+
+  return [
+    ...common.slice(0, 3),
+    "-f",
+    "bv*+ba/b",
+    "--merge-output-format",
+    "mp4",
+    "--add-metadata",
+    "--embed-thumbnail",
+    ...common.slice(3),
+  ];
+}
+
+export async function downloadMedia(
+  options: DownloadOptions,
+): Promise<DownloadResult> {
+  const ytDlp = await findYtDlp();
+  const outputTemplate = path.join(options.outputDir, "%(title)s.%(ext)s");
+  const args = buildArgs(options.kind, options.url, outputTemplate);
+
+  const printedLines: string[] = [];
 
   await new Promise<void>((resolve, reject) => {
     const proc = spawn(ytDlp, args, { stdio: ["ignore", "pipe", "pipe"] });
@@ -104,10 +130,11 @@ export async function downloadMp3(
       }
 
       if (trimmed.includes("[Merger]")) {
+        const mergeMatch = trimmed.match(MERGER_RE);
         options.onProgress?.({
-          phase: "download",
+          phase: "merge",
           percent: 100,
-          message: "Merging audio streams...",
+          message: mergeMatch?.[1]?.trim() ?? "Merging video and audio...",
         });
       }
     };
@@ -120,15 +147,7 @@ export async function downloadMp3(
 
       for (const line of lines) {
         const trimmed = line.trim();
-        if (!trimmed) continue;
-
-        if (!outputPath && trimmed.endsWith(".mp3")) {
-          outputPath = trimmed;
-          continue;
-        }
-        if (!title && outputPath && trimmed !== outputPath) {
-          title = trimmed;
-        }
+        if (trimmed) printedLines.push(trimmed);
       }
     });
 
@@ -143,16 +162,19 @@ export async function downloadMp3(
     proc.on("error", reject);
     proc.on("close", (code) => {
       if (stderrBuffer) handleLine(stderrBuffer);
-      if (stdoutBuffer.trim()) {
-        const line = stdoutBuffer.trim();
-        if (!outputPath && line.endsWith(".mp3")) outputPath = line;
-        else if (!title && outputPath) title = line;
-      }
+      if (stdoutBuffer.trim()) printedLines.push(stdoutBuffer.trim());
 
       if (code === 0) resolve();
       else reject(new Error(`yt-dlp exited with code ${code}`));
     });
   });
+
+  const outputPath =
+    printedLines.find(
+      (line) => path.isAbsolute(line) && path.extname(line) !== "",
+    ) ?? "";
+  const title =
+    printedLines.find((line) => line !== outputPath && line.length > 0) ?? "";
 
   if (!outputPath) {
     throw new Error("Download finished but no output file was reported.");
@@ -164,8 +186,20 @@ export async function downloadMp3(
 
   return {
     outputPath,
-    title: title || path.basename(outputPath, ".mp3"),
+    title: title || path.basename(outputPath, path.extname(outputPath)),
   };
+}
+
+export async function downloadMp3(
+  options: Omit<DownloadOptions, "kind">,
+): Promise<DownloadResult> {
+  return downloadMedia({ ...options, kind: "mp3" });
+}
+
+export async function downloadVideo(
+  options: Omit<DownloadOptions, "kind">,
+): Promise<DownloadResult> {
+  return downloadMedia({ ...options, kind: "video" });
 }
 
 export async function ensureOutputDir(outputDir: string): Promise<string> {
@@ -175,4 +209,23 @@ export async function ensureOutputDir(outputDir: string): Promise<string> {
     await mkdir(resolved, { recursive: true });
   });
   return resolved;
+}
+
+export function normalizeUrl(value: string): string {
+  let url = value.trim();
+  if (/^ttps:\/\//i.test(url)) url = `h${url}`;
+  if (/^ttp:\/\//i.test(url)) url = `h${url}`;
+  if (!/^https?:\/\//i.test(url)) {
+    url = `https://${url.replace(/^\/+/, "")}`;
+  }
+  return url;
+}
+
+export function isValidUrl(value: string): boolean {
+  try {
+    const parsed = new URL(value);
+    return parsed.protocol === "http:" || parsed.protocol === "https:";
+  } catch {
+    return false;
+  }
 }
