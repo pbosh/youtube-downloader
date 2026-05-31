@@ -1,8 +1,11 @@
 # YouTube Downloader
 
-Download YouTube **320 kbps MP3** audio or **video** (best available format, merged to MP4 when needed) with a simple web UI or CLI.
+Download YouTube media to your **Desktop** with a simple web UI or CLI:
 
-Files are saved to your **Desktop**.
+- **MP3** — 320 kbps audio
+- **MP4** — max quality available (best video + audio, merged to MP4)
+- **Thumbnail** — JPG cover image
+- **All** — MP3, MP4, and thumbnail in one go
 
 ## Requirements
 
@@ -26,7 +29,7 @@ Kills anything already on port **47823**, then starts the web UI:
 cd youtube-downloader && npm run launch
 ```
 
-Open [http://localhost:47823](http://localhost:47823), paste a YouTube URL, and click **Download MP3** or **Download MP4**.
+Open [http://localhost:47823](http://localhost:47823), paste a YouTube URL, and choose **Download MP3**, **Download MP4**, **Download Thumb**, or **Download ALL**.
 
 ## Kill only
 

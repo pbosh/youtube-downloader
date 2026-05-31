@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 import path from "node:path";
-import { downloadMp3, ensureOutputDir } from "./download.js";
+import { downloadMp3, ensureOutputDir, isValidYouTubeUrl, normalizeYouTubeUrl } from "./download.js";
 import { getDesktopPath } from "./paths.js";
 import { createProgressBar } from "./progress.js";
 
@@ -11,6 +11,7 @@ function printUsage() {
 
 Examples:
   npm run dev -- "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+  npm run dev -- "dQw4w9WgXcQ"
   npm run dev -- "https://youtu.be/dQw4w9WgXcQ" ./my-music
 
 Downloads audio as 320 kbps MP3 to your Desktop by default.
@@ -25,13 +26,16 @@ async function main() {
     process.exit(args.length === 0 ? 1 : 0);
   }
 
-  const url = args[0]!;
+  const rawUrl = args[0]!;
+  const url = normalizeYouTubeUrl(rawUrl);
   const outputDir = args[1]
     ? path.resolve(args[1])
     : defaultOutputDir;
 
-  if (!/^https?:\/\//i.test(url)) {
-    console.error("Error: Please provide a valid http(s) YouTube URL.");
+  if (!isValidYouTubeUrl(url)) {
+    console.error(
+      "Error: Please provide a valid YouTube link, video ID, or youtu.be URL.",
+    );
     printUsage();
     process.exit(1);
   }

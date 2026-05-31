@@ -1,0 +1,28 @@
+:root {
+  --bg: #090014;
+  --panel: #140824;
+  --text: #f8f4ff;
+  --muted: #b89cff;
+  --placeholder: rgba(184, 156, 255, 0.35);
+  --accent: #ff2fd6;
+  --accent-hover: #ff67e4;
+  --border: #3a1f66;
+  --bg-glow: rgba(255, 47, 214, 0.16);
+  --panel-shadow-color: rgba(124, 0, 255, 0.22);
+  --input-focus-ring: rgba(255, 47, 214, 0.35);
+  --progress-start: #7c00ff;
+  --progress-end: #00f5ff;
+  --skin-bar-bg: rgba(124, 0, 255, 0.12);
+  --skin-option-active: rgba(0, 245, 255, 0.16);
+  --cycle-color: #7ee8ff;
+  --cycle-active-color: #ff2fd6;
+  --font-family: "Avenir Next", "Segoe UI", sans-serif;
+  --radius-button: 999px;
+  --main-radius: 24px;
+  --button-shadow: 0 0 18px rgba(255, 47, 214, 0.25);
+  --progress-glow: 0 0 14px rgba(0, 245, 255, 0.25);
+}
+
+#thumb-btn {
+  color: #1a1024;
+}

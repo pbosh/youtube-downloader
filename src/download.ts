@@ -251,21 +251,9 @@ export async function ensureOutputDir(outputDir: string): Promise<string> {
   return resolved;
 }
 
-export function normalizeUrl(value: string): string {
-  let url = value.trim();
-  if (/^ttps:\/\//i.test(url)) url = `h${url}`;
-  if (/^ttp:\/\//i.test(url)) url = `h${url}`;
-  if (!/^https?:\/\//i.test(url)) {
-    url = `https://${url.replace(/^\/+/, "")}`;
-  }
-  return url;
-}
-
-export function isValidUrl(value: string): boolean {
-  try {
-    const parsed = new URL(value);
-    return parsed.protocol === "http:" || parsed.protocol === "https:";
-  } catch {
-    return false;
-  }
-}
+export {
+  isValidUrl,
+  isValidYouTubeUrl,
+  normalizeUrl,
+  normalizeYouTubeUrl,
+} from "./youtube-url.js";
