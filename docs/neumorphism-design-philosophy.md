@@ -16,7 +16,7 @@ Every control shares one `--neu-base` hue derived from the banner. Elements look
 Extruded (raised) elements use light top-left + dark bottom-right outer shadows. Recessed (inset) elements invert that pair. Do not use `backdrop-filter`, glass blur, or neon glow on chrome unless documenting banner-only color in analysis.
 
 **Banner supplies color; UI supplies form**  
-Pick base, shadow, highlight, and accent hues from the source image. The triangle’s pink/gold may appear in progress or active states—not as rainbow button fills or blurred streaks on Download ALL.
+Pick base, shadow, highlight, and accent hues from the source image. Banner secondaries may tint focus rings and chrome—not rainbow button fills, gradient progress bars, or blurred streaks on Download ALL.
 
 **Typography unity**  
 Description, buttons, and URL placeholder share one family, size, and weight ladder. Placeholder is lighter than body copy; entered URL text uses `--text` for contrast.
@@ -84,13 +84,13 @@ Mid-tone from block edges or atmospheric gray-green—used for the description p
 Lighter than `--muted`, same hue family—used only for URL prefill, never for body copy.
 
 **`--accent`**  
-One vivid hue from the hero (often triangle pink). Use sparingly: focus rings, active picker outline, cycle-active icon—not button fills.
+One vivid hue from the hero (often triangle pink). Use sparingly: focus rings, active picker outline, fav-filter active icon—not button fills.
 
 **`--accent-hover`**  
 Slightly deeper or richer variant of `--accent` for hover on accent-colored chrome only.
 
 **`--accent-teal` / `--accent-peach` / `--accent-gold`**  
-Secondary banner hues for progress gradients and optional ambient body washes—never assigned per download button.
+Secondary banner hues for optional ambient body washes and focus chrome—never assigned per download button or progress fill.
 
 **`--button-fill` / `--button-fill-hover`**  
 Always `--neu-base`. Hover changes shadow, not fill color.
@@ -108,13 +108,16 @@ Low-alpha `--accent` outline—enough to show focus without flat Material-style 
 Inset pair plus optional accent ring—field stays recessed while focused.
 
 **`--progress-start` / `--progress-end`**  
-Gradient anchors from cool block color to warm triangle color—banner story in the fill bar only.
+Legacy tokens for optional standalone `.progress-bar` tracks. Do **not** use them for download button fills (`.btn-progress`). If a separate status bar exists, prefer one solid `--button-progress-fill` tone—not a multi-hue gradient.
+
+**`--button-progress-fill` / `--button-all-progress-fill`**  
+Solid fill for in-button progress (`.btn-progress`). Use a slightly lifted mix of `--neu-base` + white (e.g. `color-mix(in srgb, var(--neu-base) 80%, white 20%)`). Same material family as the button face—only brighter. **Never** `linear-gradient`, multi-stop spectrum, or banner accent rainbows. Width communicates progress; color must not send a second message.
 
 **`--progress-glow`**  
 Usually `none` in neumorphism. The track is recessed; the bar should not bloom outside the trough.
 
 **`--cycle-color` / `--cycle-active-color`**  
-Muted default; accent when cycling—icon tints only, no raised chrome boxes.
+Icon tint tokens for skin-bar controls (shuffle, fav filter). Shuffle uses `--cycle-color` only—no persistent active state. Fav filter uses `--cycle-active-color` when `.active`.
 
 **`--skin-option-active`**  
 Same as base; active tile uses inset shadow + accent ring, not a different fill.
@@ -237,15 +240,15 @@ Recessed tray: inset dual shadow, rounded rect—holds controls + scroll strip l
 Opacity `1`, blur `0px`—the row is solid matte, not glass.
 
 **`.skin-controls`**  
-Vertical stack of cycle + fav-filter icons; fixed min-width column on the left.
+Vertical stack of shuffle + fav-filter icons; fixed min-width column on the left.
 
-**`#skin-cycle` (shuffle icon)**  
-Borderless control; neumorphic skins tint icon only. Active state uses `--cycle-active-color` (accent)—no raised button box.
+**`#skin-shuffle` (shuffle icon)**  
+Borderless control; one click applies a random skin from the current picker pool (all skins, or favorites when filter is on). Neumorphic skins tint icon only—no raised button box, no toggle/active state.
 
-**Cycle button disabled state**  
+**Shuffle button disabled state**  
 Reduced opacity when fewer than two skins in pool—prevents useless interaction without adding new chrome.
 
-**Cycle tooltips**  
+**Shuffle tooltips**  
 Full-sentence `title` / `aria-label` from JS—never abbreviated in neumorphism skins.
 
 **`#skin-fav-filter` (♥ filter)**  
@@ -318,13 +321,16 @@ Removes folder from disk; protected `_`-prefixed folders and last skin blocked.
 Persists selection across refresh—neumorphism deck reloads with same skin.
 
 **localStorage: favorites**  
-Set of skin ids for ♥ filter and cycle pool.
+Set of skin ids for ♥ filter and shuffle pool.
 
 **localStorage: fav filter flag**  
 Whether picker shows all skins or favorites only.
 
-**Auto cycle (30s interval)**  
-Random skin from pool; stops on manual pick; respects fav filter when enabled.
+**Picker order on launch**  
+`skins.js` shuffles the catalog once per page load—tile order is random each refresh; saved active skin is unchanged.
+
+**Shuffle (one click)**  
+Applies one random skin from the pool; respects fav filter when enabled. Never auto-advances on a timer.
 
 **`document.documentElement.dataset.skin`**  
 Active skin id for debugging and CSS hooks—set on apply.
@@ -475,10 +481,10 @@ Inset shadow pair + optional `scale(0.985)`—control appears pushed into deck.
 Reduced opacity from base `--button-opacity`—keep inset/extrude logic, lower presence.
 
 **No per-button accent colors**  
-Violates philosophy—banner colors live in progress bar and accent rings only.
+Violates philosophy—banner colors live in accent rings and the banner frame only, not in progress fill.
 
-**No gradient fills on buttons**  
-Neumorphism buttons are monochromatic with the deck—gradients belong in banner and progress fill.
+**No gradient fills on buttons or progress**  
+Neumorphism buttons and `.btn-progress` bars are monochromatic with the deck. Gradients on progress imply multiple simultaneous meanings (spectrum, temperature, channel mix) and fight the single job of “how much is done.” Use one solid `--button-progress-fill`; let **width** carry progress.
 
 **No `::before` / `::after` on ALL**  
 Removed artifact streaks—ALL is clean extrusion only.
@@ -491,6 +497,12 @@ Generous rounding (≈16px)—matches input and form corners.
 
 **Transition on shadow/transform**  
 Short ease on press/hover—avoid animating background color (fill never changes).
+
+**`.btn-progress` (in-button progress fill)**  
+Absolute layer behind `.btn-label`; grows by `width` from SSE/`progress-engine.js`. Background: `var(--button-progress-fill)` only—solid, no gradient. Optional subtle inset highlight (`inset 0 1px 0 rgba(255,255,255,0.12)`) for depth. Trio and ALL may share the same fill token; ALL must not get a spectrum or second gradient story.
+
+**`form button.all .btn-progress`**  
+May use `--button-all-progress-fill` but it must remain a **solid** sibling of `--button-progress-fill`—deeper extrusion on ALL is shadow-only, not a different progress palette.
 
 ---
 
@@ -509,7 +521,7 @@ Recessed track—inset shadow on `--neu-base`; height ~12px, pill radius.
 Solid track in neumorphism—recess reads clearly.
 
 **`.progress-bar`**  
-Fill gradient from banner secondaries (teal → pink → gold); grows with SSE progress—only saturated element besides banner photo.
+Optional legacy status track fill. If used: **one solid color** from `--button-progress-fill`—not a banner gradient. Width grows with SSE progress.
 
 **`--progress-glow: none`**  
 Bar stays inside trough—no outer bloom.
@@ -618,8 +630,8 @@ Base 0.15s for color/icon transforms; buttons may use ~0.2s on shadow.
 **Skin control icon hover scale (1.08)**  
 Subtle grow on shuffle/heart—no background pill.
 
-**Skin cycle active**  
-Icon full opacity + accent color—no extruded “on” button.
+**Skin shuffle hover**  
+Icon full opacity on hover—no extruded “on” button, no timer state.
 
 **Long-press haptic (`navigator.vibrate`)**  
 Optional 50ms pulse on delete trigger—mobile feedback only.
@@ -644,7 +656,7 @@ Resets field and focus—returns to placeholder styling.
 Reflects active skin for assistive tech.
 
 **`aria-label` on icon-only controls**  
-Cycle, fav filter, clear, fav toggle—full sentences from JS or HTML.
+Shuffle, fav filter, clear, fav toggle—full sentences from JS or HTML.
 
 **`aria-hidden` on decorative banner**  
 Hero is mood, not informational content.
@@ -653,7 +665,7 @@ Hero is mood, not informational content.
 Accent ring + inset trough—must remain visible on neumorphic decks.
 
 **Disabled control opacity**  
-Cycle/fav filter at 0.35 when unavailable—still recognizable.
+Shuffle/fav filter at 0.35 when unavailable—still recognizable.
 
 **Status live region**  
 Progress updates announced without moving focus.
@@ -699,6 +711,9 @@ Default soft-UI gray ignores image; always derive `--neu-base` from banner neutr
 **Neon flat button fills**  
 Filled accent buttons look like default web UI, not molded deck.
 
+**Gradient progress bars (`.btn-progress`, `.progress-bar`)**  
+Multi-hue `linear-gradient` fills on download progress—width already shows completion; gradients add confusing secondary meaning. Use solid `--button-progress-fill` only.
+
 **Hard 1px borders everywhere**  
 Use shadow pairs instead.
 
@@ -723,7 +738,7 @@ Path set by JS only—`url()` in CSS vars resolves against page URL.
 3. Fill `@skin-analysis` from the banner: colors, opacity notes, `mapped-*` bridges.
 4. Set `--neu-base`, `--neu-raised-light`, `--neu-raised-dark`, inset pair from sampled hex values—darken base slightly if shadows wash out.
 5. Set `--banner-aspect-ratio: W / H`; `--skin-bar-margin` top gap ≥ 16px.
-6. Map `--accent` and progress gradient from hero secondaries—sparingly on chrome.
+6. Map `--accent` from hero secondaries—sparingly on chrome (focus rings, active picker). Set `--button-progress-fill` to one solid lifted deck tone—not a gradient.
 7. Align `--subtitle-*` and `--button-*` type tokens; set `--placeholder` lighter than `--muted`.
 8. Verify trio buttons match; ALL uses deeper shadow only—no colored artifacts.
 9. Recess banner, skin row, form, input, progress track; extrude main, tiles, trio, ALL.
@@ -741,6 +756,7 @@ Path set by JS only—`url()` in CSS vars resolves against page URL.
 - [ ] Picker tiles square (app crop)—no separate square asset
 - [ ] Description, buttons, placeholder share type scale; placeholder lighter
 - [ ] MP3 / MP4 / Thumb identical; ALL deeper extrusion only
+- [ ] `.btn-progress` uses solid `--button-progress-fill`—no gradients
 - [ ] No gradient/glow artifacts on ALL
 - [ ] `--form-blur` and `--skin-row-blur` are `0px`
 - [ ] No per-button ID overrides
@@ -753,4 +769,4 @@ Path set by JS only—`url()` in CSS vars resolves against page URL.
 - [`skins/README.md`](../skins/README.md) — folder layout, `skin.json`, skin bar behavior
 - [`skins/neumorphism/`](../skins/neumorphism/) — reference `skin.css`
 - [`public/index.html`](../public/index.html) — base DOM and default variables
-- [`public/skins.js`](../public/skins.js) — picker, favorites, cycle, delete
+- [`public/skins.js`](../public/skins.js) — picker, favorites, shuffle, delete

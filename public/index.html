@@ -278,19 +278,15 @@
         height: 100%;
       }
 
-      .skin-cycle {
+      .skin-shuffle {
         color: var(--cycle-color);
       }
 
-      .skin-cycle .skin-control-icon {
+      .skin-shuffle .skin-control-icon {
         opacity: 0.78;
       }
 
-      .skin-cycle.active {
-        color: var(--cycle-active-color);
-      }
-
-      .skin-cycle.active .skin-control-icon {
+      .skin-shuffle:hover:not(:disabled) .skin-control-icon {
         opacity: 1;
       }
 
@@ -519,6 +515,10 @@
         display: block;
       }
 
+      .console-copy {
+        display: none;
+      }
+
       .console-dismiss {
         position: absolute;
         top: 0;
@@ -544,6 +544,8 @@
         height: 100%;
         margin: 0;
         overflow-y: auto;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
         font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
         font-size: 0.82rem;
         line-height: 1.55;
@@ -551,6 +553,10 @@
         white-space: pre-wrap;
         word-break: break-word;
         text-align: left;
+      }
+
+      .console-log::-webkit-scrollbar {
+        display: none;
       }
 
       form {
@@ -718,9 +724,8 @@
           <div class="skin-controls">
             <button
               type="button"
-              id="skin-cycle"
-              class="skin-control skin-cycle"
-              aria-pressed="false"
+              id="skin-shuffle"
+              class="skin-control skin-shuffle"
             >
               <span class="skin-control-icon skin-control-icon-svg" aria-hidden="true">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
@@ -756,6 +761,15 @@
           </div>
 
           <section class="console" id="console" aria-live="polite">
+            <button
+              type="button"
+              id="console-copy"
+              class="console-copy"
+              aria-label="Copy log to clipboard"
+              title="Copy log"
+            >
+              Copy
+            </button>
             <button
               type="button"
               id="console-dismiss"
@@ -830,6 +844,7 @@
       const STEP_KINDS = ["mp3", "video", "thumb"];
       const copyRegion = document.getElementById("copy-region");
       const consoleDismiss = document.getElementById("console-dismiss");
+      const consoleCopy = document.getElementById("console-copy");
       const consoleLog = document.getElementById("console-log");
 
       let activeSource = null;
@@ -871,6 +886,28 @@
 
       function clearConsole() {
         consoleLog.textContent = "";
+      }
+
+      async function copyConsoleLog() {
+        const text = consoleLog.textContent.trim();
+        if (!text) return;
+
+        const defaultLabel = "Copy";
+
+        try {
+          await navigator.clipboard.writeText(text);
+          consoleCopy.textContent = "Copied";
+          consoleCopy.classList.add("is-copied");
+          window.setTimeout(() => {
+            consoleCopy.textContent = defaultLabel;
+            consoleCopy.classList.remove("is-copied");
+          }, 1400);
+        } catch {
+          consoleCopy.textContent = "Failed";
+          window.setTimeout(() => {
+            consoleCopy.textContent = defaultLabel;
+          }, 1400);
+        }
       }
 
       function resetButtonProgress() {
@@ -1101,6 +1138,7 @@
       });
 
       consoleDismiss.addEventListener("click", dismissConsole);
+      consoleCopy.addEventListener("click", copyConsoleLog);
 
       form.addEventListener("submit", (event) => {
         event.preventDefault();

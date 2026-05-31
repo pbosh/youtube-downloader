@@ -24,7 +24,7 @@ cp path/to/your-banner.png skins/my-skin/banner.png
 5. Set `--banner-aspect-ratio` to **width / height of `banner.png`** (e.g. `1024 / 438`). Picker tiles are square center-crops — see [Scene banner](../docs/neumorphism-design-philosophy.md#scene-banner).
 6. Refresh the app.
 
-Working examples: [`neumorphism/`](neumorphism/) (**Neumorphism**), [`neumorphism-soft/`](neumorphism-soft/) (**Soft Motion**), [`freequency-immersed/`](freequency-immersed/) (**In Scene**), [`freequency-mist/`](freequency-mist/) (**Mist**).
+Working examples: [`neumorphism/`](neumorphism/) (**Neumorphism**), [`neumorphism-portal/`](neumorphism-portal/) (**Portal**), [`freequency/`](freequency/) (**Freequency**), [`freequency-neon/`](freequency-neon/) (**Neon Prism**), [`freequency-cube/`](freequency-cube/) (**Holo Cube**), [`freequency-mist/`](freequency-mist/) (**Mist**).
 
 ---
 
@@ -95,7 +95,7 @@ Key banner tokens:
 
 ## Skin bar
 
-[`public/skins.js`](../public/skins.js) — tile hover shows `title`; ♡/♥ favorites; shuffle + ♥ filter icons; hold tile ~550ms to delete (confirm).
+[`public/skins.js`](../public/skins.js) — tile hover shows `title`; ♡/♥ favorites; shuffle picks a random skin; ♥ filter; hold tile ~550ms to delete (confirm). Picker order is randomized on each page load.
 
 ---
 

@@ -1,5 +1,5 @@
 /**
- * Skin picker system — catalog, favorites, filter, cycle, and apply.
+ * Skin picker system — catalog, favorites, filter, shuffle, and apply.
  */
 const SkinSystem = (() => {
   const STORAGE = {
@@ -8,7 +8,6 @@ const SkinSystem = (() => {
     favFilter: "youtube-downloader-skin-fav-filter",
   };
 
-  const CYCLE_MS = 30000;
   const LONG_PRESS_MS = 550;
   const LONG_PRESS_MOVE_PX = 20;
 
@@ -16,15 +15,13 @@ const SkinSystem = (() => {
   let catalog = [];
 
   const state = {
-    cycling: false,
     favFilter: false,
     favorites: new Set(),
   };
 
-  let cycleTimer = null;
   let activeSkinStylesheet = document.getElementById("skin-stylesheet");
 
-  let cycleButton = null;
+  let shuffleButton = null;
   let favFilterButton = null;
   let scrollContainer = null;
 
@@ -42,6 +39,15 @@ const SkinSystem = (() => {
       .replace(/&/g, "&amp;")
       .replace(/</g, "&lt;")
       .replace(/"/g, "&quot;");
+  }
+
+  function shuffleArray(items) {
+    const copy = [...items];
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copy[i], copy[j]] = [copy[j], copy[i]];
+    }
+    return copy;
   }
 
   function readFavorites() {
@@ -103,15 +109,14 @@ const SkinSystem = (() => {
     return catalog.filter((skin) => state.favorites.has(skin.id));
   }
 
-  /** Skins shown in the horizontal picker. */
+  /** Skins shown in the horizontal picker (catalog order is shuffled each launch). */
   function getPickerSkins() {
     if (!state.favFilter) return catalog;
     return getFavoriteSkins();
   }
 
-  /** Pool used when cycling (respects fav filter, not picker visibility alone). */
-  function getCyclePool(excludeId = null) {
-    const source = state.favFilter ? getFavoriteSkins() : catalog;
+  function getShufflePool(excludeId = null) {
+    const source = getPickerSkins();
     if (source.length === 0) return [];
     if (!excludeId || source.length === 1) return source;
     const candidates = source.filter((skin) => skin.id !== excludeId);
@@ -138,7 +143,6 @@ const SkinSystem = (() => {
       writeFavFilter();
     }
 
-    validateCycleState();
     render();
   }
 
@@ -147,39 +151,36 @@ const SkinSystem = (() => {
 
     state.favFilter = !state.favFilter;
     writeFavFilter();
-    validateCycleState();
     render();
   }
 
   function pickRandomSkin(excludeId) {
-    const pool = getCyclePool(excludeId);
+    const pool = getShufflePool(excludeId);
     if (pool.length === 0) return null;
     return pool[Math.floor(Math.random() * pool.length)];
   }
 
-  function updateControlButtons() {
-    if (cycleButton) {
-      const canCycle = getCyclePool().length > 1;
-      cycleButton.classList.toggle("active", state.cycling);
-      cycleButton.setAttribute("aria-pressed", String(state.cycling));
-      cycleButton.disabled = !canCycle;
+  function shuffleToRandomSkin() {
+    const skin = pickRandomSkin(getCurrentSkinId());
+    if (skin) applySkin(skin);
+  }
 
-      let cycleTitle;
-      if (!canCycle) {
-        cycleTitle =
-          "Add more skins or favorites to enable automatic cycling.";
-      } else if (state.cycling) {
-        cycleTitle = state.favFilter
-          ? "Click to stop cycling through your favorite skins."
-          : "Click to stop cycling through skins.";
+  function updateControlButtons() {
+    if (shuffleButton) {
+      const canShuffle = getShufflePool().length > 1;
+      shuffleButton.disabled = !canShuffle;
+
+      let shuffleTitle;
+      if (!canShuffle) {
+        shuffleTitle = "Add more skins or favorites to shuffle.";
+      } else if (state.favFilter) {
+        shuffleTitle = "Pick a random favorite skin.";
       } else {
-        cycleTitle = state.favFilter
-          ? "Click to automatically cycle through your favorite skins every 30 seconds."
-          : "Click to automatically cycle through skins every 30 seconds.";
+        shuffleTitle = "Pick a random skin.";
       }
 
-      cycleButton.title = cycleTitle;
-      cycleButton.setAttribute("aria-label", cycleTitle);
+      shuffleButton.title = shuffleTitle;
+      shuffleButton.setAttribute("aria-label", shuffleTitle);
     }
 
     if (favFilterButton) {
@@ -202,58 +203,7 @@ const SkinSystem = (() => {
     }
   }
 
-  function stopCycle() {
-    state.cycling = false;
-    if (cycleTimer) {
-      clearInterval(cycleTimer);
-      cycleTimer = null;
-    }
-    updateControlButtons();
-  }
-
-  function cycleToRandomSkin() {
-    const skin = pickRandomSkin(getCurrentSkinId());
-    if (skin) applySkin(skin, { fromCycle: true });
-  }
-
-  function startCycle() {
-    if (getCyclePool().length <= 1) return;
-
-    state.cycling = true;
-    updateControlButtons();
-    cycleToRandomSkin();
-    cycleTimer = setInterval(cycleToRandomSkin, CYCLE_MS);
-  }
-
-  function toggleCycle() {
-    if (state.cycling) {
-      stopCycle();
-    } else {
-      startCycle();
-    }
-  }
-
-  function validateCycleState() {
-    if (state.cycling && getCyclePool().length <= 1) {
-      stopCycle();
-    } else {
-      updateControlButtons();
-    }
-  }
-
-  function applyBanner(skin) {
-    const bannerEl = document.querySelector(".scene-banner");
-    if (!bannerEl) return;
-
-    if (skin.banner) {
-      bannerEl.style.backgroundImage = `url(/skins/${encodeURIComponent(skin.id)}/${encodeURIComponent(skin.banner)})`;
-    } else {
-      bannerEl.style.backgroundImage = "";
-    }
-  }
-
-  function applySkin(skin, options = {}) {
-    const { fromCycle = false } = options;
+  function applySkin(skin) {
     if (!skin) return;
 
     if (!activeSkinStylesheet) {
@@ -267,12 +217,18 @@ const SkinSystem = (() => {
     document.documentElement.dataset.skin = skin.id;
     setSavedSkinId(skin.id);
     applyBanner(skin);
-
-    if (!fromCycle) {
-      stopCycle();
-    }
-
     render();
+  }
+
+  function applyBanner(skin) {
+    const bannerEl = document.querySelector(".scene-banner");
+    if (!bannerEl) return;
+
+    if (skin.banner) {
+      bannerEl.style.backgroundImage = `url(/skins/${encodeURIComponent(skin.id)}/${encodeURIComponent(skin.banner)})`;
+    } else {
+      bannerEl.style.backgroundImage = "";
+    }
   }
 
   function skinPickerIcon(skin) {
@@ -521,8 +477,6 @@ const SkinSystem = (() => {
         writeFavFilter();
       }
 
-      validateCycleState();
-
       if (wasActive) {
         const nextSkin =
           findSkin(getSavedSkinId()) ||
@@ -539,7 +493,7 @@ const SkinSystem = (() => {
   }
 
   async function init() {
-    cycleButton = document.getElementById("skin-cycle");
+    shuffleButton = document.getElementById("skin-shuffle");
     favFilterButton = document.getElementById("skin-fav-filter");
     scrollContainer = document.getElementById("skin-scroll");
 
@@ -548,7 +502,7 @@ const SkinSystem = (() => {
 
     try {
       const response = await fetch("/api/skins");
-      catalog = await response.json();
+      catalog = shuffleArray(await response.json());
     } catch {
       catalog = [];
     }
@@ -570,11 +524,11 @@ const SkinSystem = (() => {
         event.preventDefault();
       }
     });
-    cycleButton?.addEventListener("click", toggleCycle);
+    shuffleButton?.addEventListener("click", shuffleToRandomSkin);
     favFilterButton?.addEventListener("click", toggleFavFilter);
 
     if (catalog.length === 0) {
-      cycleButton?.setAttribute("disabled", "true");
+      shuffleButton?.setAttribute("disabled", "true");
       favFilterButton?.setAttribute("disabled", "true");
       return;
     }

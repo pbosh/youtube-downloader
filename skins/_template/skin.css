@@ -206,13 +206,7 @@ form::before {
 }
 
 .progress-bar {
-  background: linear-gradient(
-    90deg,
-    #ff4e00 0%,
-    #ff8c00 28%,
-    #00ffff 72%,
-    #ff00ff 100%
-  );
+  background: var(--button-progress-fill, color-mix(in srgb, var(--neu-base) 80%, white 20%));
 }
 
 .progress-wrap {
