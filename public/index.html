@@ -15,8 +15,15 @@
         --placeholder: rgba(154, 163, 178, 0.45);
         --accent: #ff3b30;
         --accent-hover: #ff6259;
-        --accent-all: color-mix(in srgb, var(--accent) 68%, white 32%);
-        --accent-all-hover: color-mix(in srgb, var(--accent-hover) 58%, white 42%);
+        /* Button brightness ladder — MP3/MP4/Thumb share --button-fill; ALL uses --button-all-fill */
+        --button-fill: color-mix(in srgb, var(--accent) 76%, black 24%);
+        --button-fill-hover: color-mix(in srgb, var(--accent) 62%, white 38%);
+        --button-all-fill: color-mix(in srgb, var(--accent) 36%, white 64%);
+        --button-all-fill-hover: color-mix(in srgb, var(--accent) 26%, white 74%);
+        --button-text: #ffffff;
+        --button-all-text: #ffffff;
+        --button-progress-fill: color-mix(in srgb, var(--button-fill) 80%, white 20%);
+        --button-all-progress-fill: color-mix(in srgb, var(--button-all-fill) 80%, white 20%);
         --border: #2a3140;
         --success: #34c759;
         --error: #ff453a;
@@ -35,6 +42,7 @@
         --scrollbar-thumb: rgba(127, 127, 127, 0.35);
         --cycle-color: var(--text);
         --cycle-active-color: var(--accent);
+        --skin-control-icon-size: 1.75rem;
 
         --body-glow-opacity: 1;
         --panel-opacity: 1;
@@ -220,57 +228,95 @@
         flex: 0 0 auto;
         display: flex;
         flex-direction: column;
-        gap: 4px;
-        width: 68px;
+        align-items: center;
+        justify-content: center;
+        gap: 8px;
+        width: auto;
+        min-width: 36px;
         height: 68px;
+        padding: 0 6px;
       }
 
       .skin-control {
-        flex: 1;
-        min-height: 0;
-        padding: 0 6px;
-        border-radius: 8px;
-        border: 1px solid var(--border);
-        background: color-mix(
-          in srgb,
-          var(--skin-option-bg) calc(var(--skin-option-opacity) * 100%),
-          transparent
-        );
+        flex: 0 0 auto;
+        padding: 0;
+        border: 0;
+        border-radius: 0;
+        background: transparent;
+        box-shadow: none;
         color: var(--cycle-color);
-        font-size: 0.62rem;
-        font-weight: 700;
-        letter-spacing: 0.04em;
         line-height: 1;
-        display: grid;
-        place-items: center;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 1;
+        transition:
+          color var(--transition-speed) ease,
+          opacity var(--transition-speed) ease,
+          transform var(--transition-speed) ease;
       }
 
-      .skin-control:hover:not(:disabled) {
-        background: var(--skin-option-active);
+      .skin-control-icon {
+        font-size: var(--skin-control-icon-size);
+        line-height: 1;
+        pointer-events: none;
+        transition:
+          transform var(--transition-speed) ease,
+          opacity var(--transition-speed) ease,
+          filter var(--transition-speed) ease;
       }
 
-      .skin-control.active {
-        border-color: var(--accent);
-        background: var(--skin-option-active);
-        color: var(--cycle-active-color);
+      .skin-control-icon-svg {
+        display: block;
+        width: var(--skin-control-icon-size);
+        height: var(--skin-control-icon-size);
       }
 
-      .skin-control:disabled {
-        opacity: 0.45;
-        cursor: not-allowed;
+      .skin-control-icon-svg svg {
+        display: block;
+        width: 100%;
+        height: 100%;
       }
 
       .skin-cycle {
-        border-radius: var(--radius-skin-cycle);
+        color: var(--cycle-color);
+      }
+
+      .skin-cycle .skin-control-icon {
+        opacity: 0.78;
+      }
+
+      .skin-cycle.active {
+        color: var(--cycle-active-color);
+      }
+
+      .skin-cycle.active .skin-control-icon {
+        opacity: 1;
       }
 
       .skin-fav-filter {
-        font-size: 0.95rem;
         color: var(--muted);
+      }
+
+      .skin-control:hover:not(:disabled) {
+        background: transparent;
+      }
+
+      .skin-control:hover:not(:disabled) .skin-control-icon {
+        transform: scale(1.08);
+      }
+
+      .skin-control:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
       }
 
       .skin-fav-filter.active {
         color: var(--accent);
+      }
+
+      .skin-fav-filter.active .skin-control-icon {
+        opacity: 1;
       }
 
       .skin-scroll {
@@ -331,6 +377,14 @@
         background: transparent;
         color: inherit;
         box-shadow: none;
+        touch-action: manipulation;
+        transition: transform 0.15s ease, outline-color 0.15s ease;
+      }
+
+      .skin-option-select.skin-option-holding {
+        outline: 2px solid var(--accent);
+        outline-offset: 2px;
+        transform: scale(0.94);
       }
 
       .skin-option:hover {
@@ -405,7 +459,7 @@
 
       h1 {
         margin: 0 0 8px;
-        padding: 0 var(--content-padding-x);
+        padding: 0;
         font-size: var(--heading-size);
         font-weight: var(--heading-weight);
         letter-spacing: var(--heading-spacing);
@@ -415,13 +469,88 @@
         text-shadow: var(--heading-shadow);
       }
 
-      p {
-        margin: 0 0 24px;
-        padding: 0 var(--content-padding-x);
+      .copy-region {
+        margin: 0 var(--content-padding-x) 24px;
+      }
+
+      .copy-frame {
+        position: relative;
+        box-sizing: border-box;
+        padding: 20px;
+        height: var(--copy-frame-height, 9.5rem);
+        border-radius: var(--radius-form);
+        overflow: hidden;
+        background: color-mix(
+          in srgb,
+          var(--panel) calc(var(--form-opacity) * 100%),
+          transparent
+        );
+        backdrop-filter: blur(var(--form-blur));
+        -webkit-backdrop-filter: blur(var(--form-blur));
+        mix-blend-mode: var(--form-blend-mode);
+      }
+
+      .copy-idle {
+        height: 100%;
+      }
+
+      .copy-idle .description {
+        margin: 0;
+        padding: 0;
         color: var(--muted);
         line-height: 1.5;
         text-align: var(--subtitle-align);
         opacity: var(--subtitle-opacity);
+      }
+
+      .copy-region.show-activity .copy-idle {
+        display: none;
+      }
+
+      .console {
+        display: none;
+        position: relative;
+        box-sizing: border-box;
+        height: 100%;
+        padding-right: 36px;
+      }
+
+      .copy-region.show-activity .console {
+        display: block;
+      }
+
+      .console-dismiss {
+        position: absolute;
+        top: 0;
+        right: 0;
+        width: 28px;
+        height: 28px;
+        padding: 0;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        color: var(--muted);
+        font-size: 1.25rem;
+        line-height: 1;
+        cursor: pointer;
+      }
+
+      .console-dismiss:hover {
+        background: rgba(127, 127, 127, 0.18);
+        color: var(--text);
+      }
+
+      .console-log {
+        height: 100%;
+        margin: 0;
+        overflow-y: auto;
+        font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
+        font-size: 0.82rem;
+        line-height: 1.55;
+        color: var(--muted);
+        white-space: pre-wrap;
+        word-break: break-word;
+        text-align: left;
       }
 
       form {
@@ -507,21 +636,55 @@
       }
 
       form button {
+        position: relative;
+        overflow: hidden;
+        isolation: isolate;
         border: 0;
         border-radius: var(--radius-button);
         padding: 14px 18px;
         font-size: 1rem;
         font-weight: 600;
-        color: white;
-        background: var(--accent);
+        color: var(--button-text);
+        background: var(--button-fill);
         cursor: pointer;
         opacity: var(--button-opacity);
         box-shadow: var(--button-shadow);
         transition: background var(--transition-speed) ease;
       }
 
+      form button .btn-label {
+        position: relative;
+        z-index: 1;
+      }
+
+      form button .btn-progress {
+        position: absolute;
+        inset: 0 auto 0 0;
+        width: 0%;
+        border-radius: inherit;
+        background: var(--button-progress-fill);
+        opacity: 0;
+        transition: width 0.12s linear, opacity 0.15s ease;
+        z-index: 0;
+        pointer-events: none;
+      }
+
+      form button.is-pending .btn-progress,
+      form button.is-running .btn-progress,
+      form button.is-complete .btn-progress {
+        opacity: 1;
+      }
+
+      form button.all .btn-progress {
+        background: var(--button-all-progress-fill);
+      }
+
+      form button.is-complete .btn-progress {
+        opacity: 0.92;
+      }
+
       form button:hover:not(:disabled) {
-        background: var(--accent-hover);
+        background: var(--button-fill-hover);
       }
 
       form button:disabled {
@@ -530,101 +693,19 @@
       }
 
       form button.all {
-        background: var(--accent-all);
+        color: var(--button-all-text);
+        background: var(--button-all-fill);
         box-shadow: var(--button-all-shadow);
       }
 
       form button.all:hover:not(:disabled) {
-        background: var(--accent-all-hover);
+        background: var(--button-all-fill-hover);
       }
 
       .skin-bar .skin-control,
       .skin-bar .skin-option-select,
       .skin-bar .skin-fav-toggle {
         cursor: pointer;
-      }
-
-      .status {
-        margin: 20px var(--content-padding-x) 0;
-      }
-
-      .status.visible {
-        display: block;
-      }
-
-      .status:not(.visible) {
-        display: none;
-      }
-
-      .progress-wrap {
-        margin-top: 8px;
-        height: 12px;
-        background: color-mix(
-          in srgb,
-          rgba(127, 127, 127, 0.18) calc(var(--progress-track-opacity) * 100%),
-          transparent
-        );
-        border-radius: var(--radius-progress);
-        overflow: hidden;
-      }
-
-      .progress-bar {
-        height: 100%;
-        width: 0%;
-        background: linear-gradient(90deg, var(--progress-start), var(--progress-end));
-        box-shadow: var(--progress-glow);
-        transition: width 0.2s ease;
-      }
-
-      .status-text {
-        margin-top: 10px;
-        font-size: 0.95rem;
-        color: var(--muted);
-      }
-
-      .result {
-        margin: 16px var(--content-padding-x) 0;
-        padding: 14px 16px;
-        border-radius: 12px;
-        background: color-mix(
-          in srgb,
-          var(--result-bg) calc(var(--result-opacity) * 100%),
-          transparent
-        );
-        border: 1px solid var(--result-border);
-        backdrop-filter: blur(var(--result-blur));
-        -webkit-backdrop-filter: blur(var(--result-blur));
-        display: none;
-      }
-
-      .result.visible {
-        display: block;
-      }
-
-      .result strong {
-        display: block;
-        margin-bottom: 4px;
-      }
-
-      .error {
-        margin: 16px var(--content-padding-x) 0;
-        padding: 14px 16px;
-        border-radius: 12px;
-        background: color-mix(
-          in srgb,
-          var(--error-bg) calc(var(--error-opacity) * 100%),
-          transparent
-        );
-        border: 1px solid var(--error-border);
-        color: var(--error);
-        backdrop-filter: blur(var(--error-blur));
-        -webkit-backdrop-filter: blur(var(--error-blur));
-        opacity: var(--error-opacity);
-        display: none;
-      }
-
-      .error.visible {
-        display: block;
       }
     </style>
   </head>
@@ -639,32 +720,55 @@
               type="button"
               id="skin-cycle"
               class="skin-control skin-cycle"
-              title="Cycle skins every 30 seconds"
               aria-pressed="false"
             >
-              CYCLE
+              <span class="skin-control-icon skin-control-icon-svg" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M16 3h5v5" />
+                  <path d="M4 20 20 4" />
+                  <path d="M21 16v5h-5" />
+                  <path d="M15 15l6 6" />
+                  <path d="M4 4l5 5" />
+                </svg>
+              </span>
             </button>
             <button
               type="button"
               id="skin-fav-filter"
               class="skin-control skin-fav-filter"
-              title="Show favorites only"
-              aria-label="Show favorites only"
               aria-pressed="false"
             >
-              <span aria-hidden="true">★</span>
+              <span class="skin-control-icon" aria-hidden="true">♥</span>
             </button>
           </div>
           <div class="skin-scroll" id="skin-scroll" aria-label="UI skins"></div>
         </div>
       </div>
 
-      <h1>YouTube Downloader</h1>
-      <p>
-        Paste a link to save to your Desktop: <strong>320 kbps MP3</strong>,
-        <strong>max-quality MP4 video</strong>, a <strong>JPG thumbnail</strong>,
-        or <strong>all three</strong>.
-      </p>
+      <div class="copy-region" id="copy-region">
+        <div class="copy-frame">
+          <div class="copy-idle">
+            <h1>YouTube Downloader</h1>
+            <p id="description" class="description">
+              Paste a YouTube link. Save these to your desktop:<br />
+              320 kbps MP3, max-quality MP4 video, JPG thumbnail, or all three.
+            </p>
+          </div>
+
+          <section class="console" id="console" aria-live="polite">
+            <button
+              type="button"
+              id="console-dismiss"
+              class="console-dismiss"
+              aria-label="Back to description"
+              title="Dismiss"
+            >
+              ×
+            </button>
+            <div class="console-log" id="console-log"></div>
+          </section>
+        </div>
+      </div>
 
       <form id="download-form">
         <label for="url">YouTube URL</label>
@@ -687,24 +791,27 @@
             ×
           </button>
         </div>
-        <button type="submit" id="mp3-btn">Download MP3</button>
-        <button type="button" id="video-btn">Download MP4</button>
-        <button type="button" id="thumb-btn">Download Thumb</button>
-        <button type="button" id="all-btn" class="all">Download ALL</button>
+        <button type="submit" id="mp3-btn" data-kind="mp3">
+          <span class="btn-progress" aria-hidden="true"></span>
+          <span class="btn-label">Download MP3</span>
+        </button>
+        <button type="button" id="video-btn" data-kind="video">
+          <span class="btn-progress" aria-hidden="true"></span>
+          <span class="btn-label">Download MP4</span>
+        </button>
+        <button type="button" id="thumb-btn" data-kind="thumb">
+          <span class="btn-progress" aria-hidden="true"></span>
+          <span class="btn-label">Download Thumb</span>
+        </button>
+        <button type="button" id="all-btn" class="all" data-kind="all">
+          <span class="btn-progress" aria-hidden="true"></span>
+          <span class="btn-label">Download ALL</span>
+        </button>
       </form>
-
-      <section class="status" id="status" aria-live="polite">
-        <div class="progress-wrap" aria-hidden="true">
-          <div class="progress-bar" id="progress-bar"></div>
-        </div>
-        <div class="status-text" id="status-text">Preparing...</div>
-      </section>
-
-      <div class="result" id="result"></div>
-      <div class="error" id="error"></div>
     </main>
 
     <script src="/youtube-url.js"></script>
+    <script src="/progress-engine.js"></script>
     <script>
       const form = document.getElementById("download-form");
       const urlInput = document.getElementById("url");
@@ -714,14 +821,25 @@
       const thumbBtn = document.getElementById("thumb-btn");
       const allBtn = document.getElementById("all-btn");
       const actionButtons = [mp3Btn, videoBtn, thumbBtn, allBtn];
-      const status = document.getElementById("status");
-      const progressBar = document.getElementById("progress-bar");
-      const statusText = document.getElementById("status-text");
-      const result = document.getElementById("result");
-      const errorBox = document.getElementById("error");
+      const buttonByKind = {
+        mp3: mp3Btn,
+        video: videoBtn,
+        thumb: thumbBtn,
+        all: allBtn,
+      };
+      const STEP_KINDS = ["mp3", "video", "thumb"];
+      const copyRegion = document.getElementById("copy-region");
+      const consoleDismiss = document.getElementById("console-dismiss");
+      const consoleLog = document.getElementById("console-log");
 
       let activeSource = null;
       let finished = false;
+      let activeKind = null;
+      let lastProgressLogKey = "";
+
+      const progressEngine = new DownloadProgressEngine((snapshot) => {
+        renderButtonProgress(snapshot);
+      });
 
       function updateClearButton() {
         urlClearBtn.classList.toggle("visible", urlInput.value.length > 0);
@@ -731,25 +849,122 @@
         return YouTubeUrl.normalizeYouTubeUrl(input);
       }
 
+      function showConsole() {
+        copyRegion.classList.add("show-activity");
+      }
+
+      function showDescriptionPanel() {
+        copyRegion.classList.remove("show-activity");
+        resetUi();
+      }
+
+      function appendLog(message) {
+        showConsole();
+        const stamp = new Date().toLocaleTimeString([], {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+        });
+        consoleLog.textContent += `[${stamp}] ${message}\n`;
+        consoleLog.scrollTop = consoleLog.scrollHeight;
+      }
+
+      function clearConsole() {
+        consoleLog.textContent = "";
+      }
+
+      function resetButtonProgress() {
+        progressEngine.reset();
+
+        for (const button of actionButtons) {
+          button.classList.remove("is-active", "is-pending", "is-running", "is-complete");
+          const bar = button.querySelector(".btn-progress");
+          if (bar) {
+            bar.style.width = "0%";
+            bar.style.opacity = "";
+          }
+        }
+      }
+
+      function beginButtonProgress(kind) {
+        progressEngine.start(kind);
+      }
+
+      function formatEtaLabel(etaSeconds) {
+        const total = Math.max(0, Math.round(etaSeconds));
+        const hours = Math.floor(total / 3600);
+        const minutes = Math.floor((total % 3600) / 60);
+        const seconds = total % 60;
+        if (hours > 0) {
+          return `~${hours}:${String(minutes).padStart(2, "0")}:${String(seconds).padStart(2, "0")} left`;
+        }
+        return `~${minutes}:${String(seconds).padStart(2, "0")} left`;
+      }
+
+      function shouldLogProgress(kind, data) {
+        const step =
+          kind === "all"
+            ? data.step ||
+              STEP_KINDS[Math.max(0, (data.stepIndex || 1) - 1)] ||
+              "mp3"
+            : kind;
+        const key = `${step}:${data.stage ?? ""}:${data.phase}:${data.message ?? ""}`;
+        if (key === lastProgressLogKey) return false;
+        lastProgressLogKey = key;
+        return true;
+      }
+
+      function updateDownloadProgress(kind, data) {
+        progressEngine.feed({ kind, ...data });
+      }
+
+      function finalizeButtonProgress(kind) {
+        progressEngine.finish(kind);
+      }
+
+      function applyButtonBar(button, state) {
+        const bar = button.querySelector(".btn-progress");
+        if (!bar) return;
+
+        const percent = Math.max(0, Math.min(100, state.percent));
+        const showFill = state.active || state.complete;
+
+        button.classList.toggle("is-pending", false);
+        button.classList.toggle("is-running", state.running && !state.complete);
+        button.classList.toggle("is-complete", state.complete);
+        button.classList.toggle("is-active", showFill);
+        bar.style.width = state.complete ? "100%" : `${percent}%`;
+      }
+
+      function renderButtonProgress(snapshot) {
+        if (!snapshot?.kind) return;
+
+        for (const stepKind of STEP_KINDS) {
+          applyButtonBar(buttonByKind[stepKind], snapshot.buttons[stepKind]);
+        }
+
+        applyButtonBar(allBtn, snapshot.buttons.all);
+      }
+
       function showError(message) {
-        errorBox.textContent = message;
-        errorBox.classList.add("visible");
+        appendLog(`Error: ${message}`);
       }
 
       function resetUi() {
-        status.classList.remove("visible");
-        result.classList.remove("visible");
-        errorBox.classList.remove("visible");
-        progressBar.style.width = "0%";
-        statusText.textContent = "Preparing...";
-        result.textContent = "";
-        errorBox.textContent = "";
+        clearConsole();
+        resetButtonProgress();
+        activeKind = null;
+        lastProgressLogKey = "";
       }
 
-      function setProgress(percent, message) {
-        status.classList.add("visible");
-        progressBar.style.width = `${Math.max(0, Math.min(100, percent))}%`;
-        statusText.textContent = message;
+      function dismissConsole() {
+        if (activeSource) {
+          finished = true;
+          activeSource.close();
+          activeSource = null;
+          setButtonsDisabled(false);
+        }
+        showDescriptionPanel();
       }
 
       function setButtonsDisabled(disabled) {
@@ -758,23 +973,41 @@
         }
       }
 
-      function phaseLabel(phase, kind) {
+      function phaseLabel(phase, kind, stage) {
+        if (stage === "prepare") return "Preparing";
         switch (phase) {
           case "starting":
             return "Starting";
           case "download":
             if (kind === "video") return "Downloading video";
             if (kind === "thumb") return "Downloading thumbnail";
-            return "Downloading";
+            return "Downloading MP3";
           case "extract":
             return "Converting to MP3";
           case "merge":
             return "Merging video";
+          case "finalize":
+            return "Finishing up";
           case "done":
             return "Done";
           default:
             return "Working";
         }
+      }
+
+      function logSavedFiles(data) {
+        appendLog("Complete.");
+        if (data.title) appendLog(`Title: ${data.title}`);
+
+        if (Array.isArray(data.files)) {
+          for (const file of data.files) {
+            appendLog(`Saved to Desktop: ${file.fileName}`);
+          }
+        } else if (data.fileName) {
+          appendLog(`Saved to Desktop: ${data.fileName}`);
+        }
+
+        appendLog("Enjoy your files!");
       }
 
       function startDownload(kind) {
@@ -795,8 +1028,16 @@
         }
 
         resetUi();
+        activeKind = kind;
+        showConsole();
+        appendLog(
+          kind === "all"
+            ? "Starting MP3, MP4, and thumbnail downloads..."
+            : `Starting ${kind.toUpperCase()} download...`,
+        );
         setButtonsDisabled(true);
         finished = false;
+        beginButtonProgress(kind);
 
         const source = new EventSource(
           `/api/download?url=${encodeURIComponent(url)}&kind=${encodeURIComponent(kind)}`,
@@ -805,37 +1046,29 @@
 
         source.addEventListener("progress", (event) => {
           const data = JSON.parse(event.data);
-          const activeKind = kind === "all" ? data.step : kind;
-          const label = phaseLabel(data.phase, activeKind);
-          const percent =
-            typeof data.percent === "number"
-              ? data.percent
-              : data.phase === "extract" || data.phase === "merge"
-                ? 100
-                : 0;
+          updateDownloadProgress(kind, data);
+
+          if (!shouldLogProgress(kind, data)) return;
+
+          const activeStepKind = kind === "all" ? data.step : kind;
+          const label = phaseLabel(data.phase, activeStepKind, data.stage);
           const stepDetail =
             kind === "all" && data.stepIndex
-              ? ` (${data.stepIndex}/${data.stepTotal})`
+              ? ` (step ${data.stepIndex}/${data.stepTotal})`
               : "";
           const detail = data.message ? ` — ${data.message}` : "";
-          setProgress(percent, `${label}${stepDetail}${detail}`);
+          const eta =
+            typeof data.etaSeconds === "number"
+              ? ` · ${formatEtaLabel(data.etaSeconds)}`
+              : "";
+          appendLog(`${label}${stepDetail}${detail}${eta}`);
         });
 
         source.addEventListener("complete", (event) => {
           finished = true;
           const data = JSON.parse(event.data);
-          setProgress(100, "Saved to Desktop");
-
-          if (Array.isArray(data.files)) {
-            const fileList = data.files
-              .map((file) => file.fileName)
-              .join("<br>");
-            result.innerHTML = `<strong>${data.title}</strong>${fileList}`;
-          } else {
-            result.innerHTML = `<strong>${data.title}</strong>${data.fileName}`;
-          }
-
-          result.classList.add("visible");
+          finalizeButtonProgress(kind);
+          logSavedFiles(data);
           source.close();
           activeSource = null;
           setButtonsDisabled(false);
@@ -866,6 +1099,8 @@
         updateClearButton();
         urlInput.focus();
       });
+
+      consoleDismiss.addEventListener("click", dismissConsole);
 
       form.addEventListener("submit", (event) => {
         event.preventDefault();

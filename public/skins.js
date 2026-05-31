@@ -9,6 +9,8 @@ const SkinSystem = (() => {
   };
 
   const CYCLE_MS = 30000;
+  const LONG_PRESS_MS = 550;
+  const LONG_PRESS_MOVE_PX = 20;
 
   /** @type {Array<{ id: string, title: string, icon: string, iconImage?: string, banner?: string }>} */
   let catalog = [];
@@ -25,6 +27,15 @@ const SkinSystem = (() => {
   let cycleButton = null;
   let favFilterButton = null;
   let scrollContainer = null;
+
+  let longPressTimer = null;
+  let longPressSkinId = null;
+  let longPressStart = null;
+  let longPressButton = null;
+  let longPressPointerId = null;
+  let longPressMoved = false;
+  let longPressHandled = false;
+  let suppressNextClick = false;
 
   function escapeHtml(value) {
     return String(value)
@@ -152,9 +163,23 @@ const SkinSystem = (() => {
       cycleButton.classList.toggle("active", state.cycling);
       cycleButton.setAttribute("aria-pressed", String(state.cycling));
       cycleButton.disabled = !canCycle;
-      cycleButton.title = state.favFilter
-        ? "Cycle favorite skins every 30 seconds"
-        : "Cycle skins every 30 seconds";
+
+      let cycleTitle;
+      if (!canCycle) {
+        cycleTitle =
+          "Add more skins or favorites to enable automatic cycling.";
+      } else if (state.cycling) {
+        cycleTitle = state.favFilter
+          ? "Click to stop cycling through your favorite skins."
+          : "Click to stop cycling through skins.";
+      } else {
+        cycleTitle = state.favFilter
+          ? "Click to automatically cycle through your favorite skins every 30 seconds."
+          : "Click to automatically cycle through skins every 30 seconds.";
+      }
+
+      cycleButton.title = cycleTitle;
+      cycleButton.setAttribute("aria-label", cycleTitle);
     }
 
     if (favFilterButton) {
@@ -162,9 +187,18 @@ const SkinSystem = (() => {
       favFilterButton.classList.toggle("active", state.favFilter);
       favFilterButton.setAttribute("aria-pressed", String(state.favFilter));
       favFilterButton.disabled = !hasFavorites;
-      favFilterButton.title = state.favFilter
-        ? "Showing favorites only (click to show all)"
-        : "Show favorites only";
+
+      let favTitle;
+      if (!hasFavorites) {
+        favTitle = "Favorite a skin first to filter the list.";
+      } else if (state.favFilter) {
+        favTitle = "Click to show all skins again.";
+      } else {
+        favTitle = "Click to show only your favorite skins.";
+      }
+
+      favFilterButton.title = favTitle;
+      favFilterButton.setAttribute("aria-label", favTitle);
     }
   }
 
@@ -264,7 +298,7 @@ const SkinSystem = (() => {
 
     if (pickerSkins.length === 0) {
       scrollContainer.innerHTML =
-        '<p class="skin-scroll-empty">Star a skin to add favorites.</p>';
+        '<p class="skin-scroll-empty">Favorite a skin with ♡ to add it here.</p>';
       return;
     }
 
@@ -275,6 +309,9 @@ const SkinSystem = (() => {
         const title = escapeHtml(skin.title);
         const favLabel = isFav ? "Remove from favorites" : "Add to favorites";
 
+        const deleteHint = "Hold to delete";
+        const selectTitle = `${skin.title} — ${deleteHint}`;
+
         return `
           <div
             class="skin-option${isActive ? " active" : ""}${isFav ? " is-favorite" : ""}"
@@ -283,8 +320,8 @@ const SkinSystem = (() => {
             <button
               type="button"
               class="skin-option-select"
-              title="${title}"
-              aria-label="Apply ${title} skin"
+              title="${escapeHtml(selectTitle)}"
+              aria-label="Apply ${title} skin. ${deleteHint}."
               aria-pressed="${isActive}"
             >
               ${skinPickerIcon(skin)}
@@ -296,7 +333,7 @@ const SkinSystem = (() => {
               aria-label="${favLabel}"
               aria-pressed="${isFav}"
             >
-              <span aria-hidden="true">${isFav ? "★" : "☆"}</span>
+              <span aria-hidden="true">${isFav ? "♥" : "♡"}</span>
             </button>
           </div>
         `;
@@ -309,7 +346,116 @@ const SkinSystem = (() => {
     updateControlButtons();
   }
 
+  function clearLongPress() {
+    if (longPressTimer) {
+      clearTimeout(longPressTimer);
+      longPressTimer = null;
+    }
+
+    if (longPressButton && longPressPointerId !== null) {
+      try {
+        if (longPressButton.hasPointerCapture(longPressPointerId)) {
+          longPressButton.releasePointerCapture(longPressPointerId);
+        }
+      } catch {
+        // Pointer may already be released.
+      }
+    }
+
+    if (longPressButton) {
+      longPressButton.classList.remove("skin-option-holding");
+      longPressButton = null;
+    }
+
+    longPressSkinId = null;
+    longPressStart = null;
+    longPressPointerId = null;
+    longPressMoved = false;
+  }
+
+  function triggerLongPressDelete(id) {
+    if (longPressHandled || !id) return;
+
+    longPressHandled = true;
+    suppressNextClick = true;
+    longPressButton?.classList.remove("skin-option-holding");
+    navigator.vibrate?.(50);
+    void deleteSkin(id).finally(() => {
+      longPressHandled = false;
+    });
+  }
+
+  function onPickerPointerDown(event) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (event.target.closest(".skin-fav-toggle")) return;
+
+    const selectButton = event.target.closest(".skin-option-select");
+    if (!selectButton) return;
+
+    const option = selectButton.closest("[data-skin-id]");
+    if (!option?.dataset.skinId) return;
+
+    clearLongPress();
+
+    longPressSkinId = option.dataset.skinId;
+    longPressButton = selectButton;
+    longPressPointerId = event.pointerId;
+    longPressMoved = false;
+    longPressStart = {
+      x: event.clientX,
+      y: event.clientY,
+      time: Date.now(),
+    };
+    selectButton.classList.add("skin-option-holding");
+    selectButton.setPointerCapture(event.pointerId);
+
+    longPressTimer = setTimeout(() => {
+      longPressTimer = null;
+      triggerLongPressDelete(longPressSkinId);
+    }, LONG_PRESS_MS);
+  }
+
+  function onPickerPointerMove(event) {
+    if (longPressPointerId !== null && event.pointerId !== longPressPointerId) {
+      return;
+    }
+
+    if (!longPressStart) return;
+
+    const dx = event.clientX - longPressStart.x;
+    const dy = event.clientY - longPressStart.y;
+
+    if (Math.hypot(dx, dy) > LONG_PRESS_MOVE_PX) {
+      longPressMoved = true;
+      clearLongPress();
+    }
+  }
+
+  function onPickerPointerEnd(event) {
+    if (longPressPointerId !== null && event.pointerId !== longPressPointerId) {
+      return;
+    }
+
+    const skinId = longPressSkinId;
+    const start = longPressStart;
+    const moved = longPressMoved;
+    const heldMs = start ? Date.now() - start.time : 0;
+
+    clearLongPress();
+
+    if (!moved && !longPressHandled && skinId && heldMs >= LONG_PRESS_MS) {
+      triggerLongPressDelete(skinId);
+    }
+  }
+
   function onPickerClick(event) {
+    if (suppressNextClick) {
+      suppressNextClick = false;
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
+
     const favButton = event.target.closest(".skin-fav-toggle");
     if (favButton) {
       event.preventDefault();
@@ -327,6 +473,69 @@ const SkinSystem = (() => {
 
     const skin = findSkin(option.dataset.skinId);
     if (skin) applySkin(skin);
+  }
+
+  /** Hold a skin tile ~600ms to remove it from disk (with confirm). */
+  async function deleteSkin(id) {
+    const skin = findSkin(id);
+    if (!skin) return;
+
+    const confirmed = window.confirm(
+      `Delete skin “${skin.title}”?\n\nThis permanently removes skins/${skin.id}/ from disk.`,
+    );
+    if (!confirmed) return;
+
+    try {
+      const response = await fetch(
+        `/api/skins/${encodeURIComponent(id)}`,
+        { method: "DELETE" },
+      );
+      let payload = {};
+      const raw = await response.text();
+      try {
+        payload = raw ? JSON.parse(raw) : {};
+      } catch {
+        payload = {};
+      }
+
+      if (!response.ok) {
+        const message =
+          payload.error ||
+          (raw.includes("Cannot DELETE")
+            ? "Delete is unavailable — restart the app server (npm run launch)."
+            : "Could not delete skin.");
+        window.alert(message);
+        return;
+      }
+
+      const wasActive = getCurrentSkinId() === id;
+      catalog = catalog.filter((entry) => entry.id !== id);
+
+      if (state.favorites.has(id)) {
+        state.favorites.delete(id);
+        writeFavorites();
+      }
+
+      if (state.favFilter && state.favorites.size === 0) {
+        state.favFilter = false;
+        writeFavFilter();
+      }
+
+      validateCycleState();
+
+      if (wasActive) {
+        const nextSkin =
+          findSkin(getSavedSkinId()) ||
+          (state.favFilter ? getFavoriteSkins()[0] : null) ||
+          catalog[0];
+        if (nextSkin) applySkin(nextSkin);
+        else render();
+      } else {
+        render();
+      }
+    } catch {
+      window.alert("Could not delete skin.");
+    }
   }
 
   async function init() {
@@ -351,7 +560,16 @@ const SkinSystem = (() => {
       writeFavFilter();
     }
 
+    scrollContainer?.addEventListener("pointerdown", onPickerPointerDown);
+    document.addEventListener("pointermove", onPickerPointerMove);
+    document.addEventListener("pointerup", onPickerPointerEnd);
+    document.addEventListener("pointercancel", onPickerPointerEnd);
     scrollContainer?.addEventListener("click", onPickerClick);
+    scrollContainer?.addEventListener("contextmenu", (event) => {
+      if (event.target.closest(".skin-option-select")) {
+        event.preventDefault();
+      }
+    });
     cycleButton?.addEventListener("click", toggleCycle);
     favFilterButton?.addEventListener("click", toggleFavFilter);
 
@@ -370,7 +588,7 @@ const SkinSystem = (() => {
     applySkin(initialSkin);
   }
 
-  return { init };
+  return { init, deleteSkin };
 })();
 
 SkinSystem.init();

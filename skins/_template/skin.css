@@ -1,137 +1,240 @@
 /*
-  Skin template — copy this folder, rename it, and edit values.
-  See skins/README.md for the full variable reference.
+  In Scene template — copy this folder, rename it, add banner.png, fill @skin-analysis.
+  Reference implementation: skins/freequency-immersed/
+  Docs: skins/README.md · docs/neumorphism-design-philosophy.md
 
-  Required files in your skin folder:
-    skin.json
-    skin.css
-    banner.png (optional — for banner skins)
-    icon.png / icon.svg (optional — picker thumbnail when no banner)
+  @skin-analysis — do not remove; not read by runtime, stored for humans + future edits
+
+  source-image:
+  analyzed-date:
+
+  ── Opacity (what you see in the image) ──
+  opacity-hero:
+  opacity-midground:
+  opacity-background:
+  opacity-ui-deck:
+  opacity-buttons:
+
+  ── Blur / softness (what you see in the image) ──
+  blur-hero-edges:
+  blur-hero-glow:
+  blur-atmosphere:
+  blur-ui-surface:
+  blur-button-edges:
+
+  ── Derived tokens (filled after analysis; these ARE used by the app) ──
+  mapped-form-opacity:     → --form-opacity
+  mapped-form-blur:        → --form-blur
+  mapped-panel-blur:       → --panel-blur
+  mapped-skin-row-blur:    → --skin-row-blur
+  mapped-banner-aspect:    → --banner-aspect-ratio (W / H from banner.png — scene only; picker square crop is automatic)
+  mapped-button-opacity:   → --button-opacity (trio); ALL via fill + shadow
+  mapped-button-shadow:    → --button-shadow / --button-all-shadow character
 */
 
 :root {
-  /* ── Color ───────────────────────────────────────── */
-  --bg: #0f1115;
-  --panel: #171a21;
-  --text: #eef1f6;
-  --muted: #9aa3b2;
-  --placeholder: rgba(154, 163, 178, 0.45);
-  --accent: #ff3b30;
-  --accent-hover: #ff6259;
-  /* MP3 / MP4 / Thumb share --accent. Download ALL auto-brightens via color-mix in index.html. */
-  --border: #2a3140;
-  --success: #34c759;
-  --error: #ff453a;
-  --bg-glow: rgba(255, 59, 48, 0.12);
-  --panel-shadow-color: rgba(0, 0, 0, 0.18);
-  --input-focus-ring: rgba(255, 59, 48, 0.35);
-  --progress-start: #ff3b30;
-  --progress-end: #ff9500;
-  --skin-bar-bg: rgba(255, 255, 255, 0.03);
-  --skin-option-bg: rgba(255, 255, 255, 0.04);
-  --skin-option-active: rgba(255, 59, 48, 0.18);
-  --result-bg: rgba(52, 199, 89, 0.12);
-  --result-border: rgba(52, 199, 89, 0.25);
-  --error-bg: rgba(255, 69, 58, 0.12);
-  --error-border: rgba(255, 69, 58, 0.25);
-  --scrollbar-thumb: rgba(127, 127, 127, 0.35);
-  --cycle-color: var(--text);
-  --cycle-active-color: var(--accent);
+  --skin-analysis-summary: "";
 
-  /* ── Opacity (0–1) ───────────────────────────────── */
-  --body-glow-opacity: 1;
+  --bg: #050505;
+  --panel: rgba(0, 26, 26, 0.7);
   --panel-opacity: 1;
-  --banner-opacity: 1;
-  --banner-overlay-opacity: 0;
-  --skin-bar-opacity: 1;
-  --skin-row-opacity: 1;
-  --heading-opacity: 1;
-  --subtitle-opacity: 1;
-  --form-opacity: 1;
-  --input-opacity: 1;
-  --input-placeholder-opacity: 1;
-  --button-opacity: 1;
-  --skin-option-opacity: 1;
-  --progress-track-opacity: 1;
-  --result-opacity: 1;
-  --error-opacity: 1;
-
-  /* ── Blur (px) ───────────────────────────────────── */
-  --panel-blur: 0px;
-  --skin-bar-blur: 0px;
-  --skin-row-blur: 0px;
-  --form-blur: 0px;
-  --input-blur: 0px;
-  --banner-blur: 0px;
-  --result-blur: 0px;
-  --error-blur: 0px;
-
-  /* ── Filter ──────────────────────────────────────── */
-  --banner-saturate: 100%;
-  --banner-contrast: 100%;
-  --banner-brightness: 100%;
-  --panel-saturate: 100%;
-  --panel-contrast: 100%;
-
-  /* ── Blend modes ─────────────────────────────────── */
-  --body-blend-mode: normal;
-  --panel-blend-mode: normal;
-  --banner-blend-mode: normal;
-  --banner-overlay-blend-mode: normal;
+  --panel-blur: 14px;
+  --panel-saturate: 110%;
+  --text: #f5feff;
+  --muted: rgba(180, 220, 225, 0.72);
+  --placeholder: rgba(180, 220, 225, 0.28);
+  --accent: #00ffff;
+  --accent-hover: #66ffff;
+  --button-fill: color-mix(in srgb, var(--accent) 52%, black 48%);
+  --button-fill-hover: color-mix(in srgb, var(--accent) 62%, black 38%);
+  --button-all-fill: color-mix(in srgb, var(--accent) 38%, white 62%);
+  --button-all-fill-hover: color-mix(in srgb, var(--accent) 28%, white 72%);
+  --button-all-text: #042f2e;
+  --border: rgba(0, 255, 255, 0.16);
+  --bg-glow: rgba(0, 255, 255, 0.06);
+  --panel-shadow-color: rgba(0, 0, 0, 0.65);
+  --panel-inset-glow: rgba(0, 255, 255, 0.04);
+  --input-focus-ring: rgba(0, 255, 255, 0.42);
+  --input-focus-shadow:
+    0 0 0 1px rgba(0, 255, 255, 0.2) inset,
+    0 0 28px rgba(0, 255, 255, 0.18);
+  --progress-start: #ff4e00;
+  --progress-end: #00ffff;
+  --progress-glow: 0 0 18px rgba(0, 255, 255, 0.28);
+  --skin-bar-bg: rgba(0, 10, 10, 0.55);
+  --skin-bar-blur: 12px;
   --skin-bar-blend-mode: normal;
-  --form-blend-mode: normal;
-  --overlay-blend-mode: normal;
+  --skin-row-blur: 16px;
+  --skin-row-opacity: 0.88;
+  --skin-option-bg: rgba(0, 8, 8, 0.62);
+  --skin-option-active: rgba(0, 255, 255, 0.1);
+  --cycle-color: #00ffff;
+  --cycle-active-color: #ff00ff;
+  --result-bg: rgba(0, 255, 180, 0.07);
+  --result-border: rgba(0, 255, 180, 0.18);
+  --error-bg: rgba(255, 78, 0, 0.1);
+  --error-border: rgba(255, 0, 255, 0.2);
+  --scrollbar-thumb: rgba(0, 255, 255, 0.35);
 
-  /* ── Banner (add banner.png + set --banner-display: block to enable) */
-  --banner-display: none;
+  --banner-display: block;
   --banner-size: cover;
-  --banner-position: center;
-  --banner-aspect-ratio: 21 / 9;
-  --banner-min-height: 0px;
-  --banner-max-height: none;
-  --banner-overlay-display: none;
-  --banner-overlay-color: rgba(0, 0, 0, 0.45);
+  --banner-position: center center;
+  --banner-aspect-ratio: 1024 / 438;
+  --banner-min-height: 160px;
+  --banner-opacity: 1;
+  --banner-saturate: 112%;
+  --banner-contrast: 105%;
+  --banner-brightness: 102%;
+  --banner-blend-mode: normal;
 
-  /* ── Layout & spacing ────────────────────────────── */
-  --main-padding: 28px;
-  --main-radius: 20px;
-  --main-max-width: 560px;
-  --skin-bar-margin: calc(-1 * var(--main-padding)) calc(-1 * var(--main-padding)) 24px;
-  --skin-bar-padding: 14px 16px;
-  --content-padding-x: 0px;
-  --heading-align: left;
-  --subtitle-align: left;
+  --main-padding: 22px;
+  --main-radius: 14px;
+  --skin-bar-margin: 0 0 16px;
+  --skin-bar-padding: 0 0 10px;
 
-  /* ── Radius ──────────────────────────────────────── */
-  --radius-button: 12px;
-  --radius-input: 12px;
-  --radius-form: 0px;
-  --radius-skin-option: 14px;
-  --radius-skin-cycle: 14px;
-  --radius-progress: 999px;
+  --heading-align: center;
+  --subtitle-align: center;
+  --heading-size: 1.08rem;
+  --heading-weight: 300;
+  --heading-spacing: 0.16em;
+  --heading-transform: uppercase;
+  --heading-shadow:
+    0 0 18px rgba(255, 78, 0, 0.2),
+    0 0 32px rgba(0, 255, 255, 0.12);
+  --label-transform: uppercase;
+  --label-size: 0.68rem;
+  --label-spacing: 0.1em;
+  --font-family: "Avenir Next", "Segoe UI", sans-serif;
 
-  /* ── Typography ──────────────────────────────────── */
-  --font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
-  --heading-size: 1.6rem;
-  --heading-weight: 700;
-  --heading-spacing: normal;
-  --heading-transform: none;
-  --label-size: 0.9rem;
-  --label-weight: 600;
-  --label-spacing: normal;
-  --label-transform: none;
+  --radius-button: 6px;
+  --radius-input: 6px;
+  --radius-form: 8px;
+  --radius-skin-option: 8px;
+  --radius-skin-cycle: 8px;
 
-  /* ── Shadows & glow ──────────────────────────────── */
-  --panel-shadow-y: 20px;
-  --panel-shadow-blur: 60px;
-  --panel-inset-glow: transparent;
-  --button-shadow: none;
-  --button-all-shadow: none;
-  --input-shadow: none;
-  --input-focus-shadow: none;
-  --progress-glow: none;
-  --heading-shadow: none;
+  --form-opacity: 0.7;
+  --form-blur: 20px;
+  --form-blend-mode: normal;
+  --input-opacity: 0.65;
+  --input-blur: 10px;
+  --input-shadow: 0 0 16px rgba(0, 255, 255, 0.04);
 
-  /* ── Motion ──────────────────────────────────────── */
-  --transition-speed: 0.15s;
+  --button-shadow: 0 0 10px rgba(0, 255, 255, 0.1);
+  --button-all-shadow:
+    0 0 18px rgba(0, 255, 255, 0.22),
+    0 0 0 1px rgba(255, 255, 255, 0.14) inset;
+}
+
+body {
+  background:
+    radial-gradient(circle at 18% 0%, rgba(255, 78, 0, 0.07), transparent 38%),
+    radial-gradient(circle at 82% 0%, rgba(0, 255, 255, 0.06), transparent 38%),
+    linear-gradient(180deg, #001a1a 0%, var(--bg) 100%);
+}
+
+main {
+  border-color: rgba(0, 255, 255, 0.12);
+  box-shadow:
+    0 28px 90px rgba(0, 0, 0, 0.65),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 0 80px rgba(0, 255, 255, 0.04);
+}
+
+.skin-bar {
+  border-bottom: 1px solid rgba(0, 255, 255, 0.08);
+}
+
+.skin-bar-row {
+  padding: 10px 12px;
+  border-radius: 8px;
+  background: rgba(0, 20, 20, 0.55);
+  border: 1px solid rgba(0, 255, 255, 0.1);
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.35),
+    0 0 0 1px rgba(255, 255, 255, 0.03) inset,
+    0 0 24px rgba(0, 255, 255, 0.04);
+  backdrop-filter: blur(var(--skin-row-blur)) saturate(120%);
+  -webkit-backdrop-filter: blur(var(--skin-row-blur)) saturate(120%);
+}
+
+.skin-option {
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+
+.copy-frame {
+  position: relative;
+  padding: 18px;
+  background: rgba(0, 26, 26, 0.72);
+  border: 1px solid rgba(0, 255, 255, 0.12);
+  border-radius: var(--radius-form);
+  box-shadow:
+    0 -16px 40px rgba(0, 255, 255, 0.03) inset,
+    0 0 24px rgba(0, 255, 255, 0.04);
+}
+
+form {
+  position: relative;
+  padding: 18px;
+  background: rgba(0, 26, 26, 0.72);
+  border: 1px solid rgba(0, 255, 255, 0.12);
+  box-shadow:
+    0 -16px 40px rgba(0, 255, 255, 0.03) inset,
+    0 16px 40px rgba(0, 0, 0, 0.35),
+    0 0 48px rgba(255, 78, 0, 0.03),
+    0 0 48px rgba(0, 255, 255, 0.03);
+}
+
+form::before {
+  content: "";
+  position: absolute;
+  inset: 10px 14px auto;
+  height: 1px;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(0, 255, 255, 0.35) 0,
+    rgba(0, 255, 255, 0.35) 14px,
+    transparent 14px,
+    transparent 22px
+  );
+  opacity: 0.35;
+  pointer-events: none;
+}
+
+.url-field input {
+  border-color: rgba(0, 255, 255, 0.18);
+  background: rgba(0, 12, 12, 0.78);
+}
+
+.progress-bar {
+  background: linear-gradient(
+    90deg,
+    #ff4e00 0%,
+    #ff8c00 28%,
+    #00ffff 72%,
+    #ff00ff 100%
+  );
+}
+
+.progress-wrap {
+  box-shadow: 0 0 0 1px rgba(0, 255, 255, 0.06) inset;
+}
+
+.skin-cycle.active .skin-control-icon {
+  animation: skin-cycle-pulse 2.4s ease-in-out infinite;
+}
+
+@keyframes skin-cycle-pulse {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 4px rgba(0, 255, 255, 0.45));
+  }
+  50% {
+    filter: drop-shadow(0 0 8px rgba(255, 0, 255, 0.55));
+  }
+}
+
+@media (max-width: 520px) {
+  :root {
+    --banner-min-height: 120px;
+  }
 }

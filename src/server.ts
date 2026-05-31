@@ -7,9 +7,10 @@ import {
   isValidYouTubeUrl,
   normalizeYouTubeUrl,
   type DownloadKind,
+  type DownloadProgress,
 } from "./download.js";
 import { getDesktopPath } from "./paths.js";
-import { listSkins } from "./skins.js";
+import { deleteSkin, listSkins } from "./skins.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(__dirname, "..", "public");
@@ -19,10 +20,18 @@ const port = Number(process.env.PORT) || 47823;
 let downloadInProgress = false;
 
 function beginSse(res: express.Response) {
-  res.setHeader("Content-Type", "text/event-stream");
-  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
+  res.setHeader("Cache-Control", "no-cache, no-transform");
   res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
   res.flushHeaders?.();
+}
+
+function flushSse(res: express.Response) {
+  const response = res as express.Response & { flush?: () => void };
+  if (typeof response.flush === "function") {
+    response.flush();
+  }
 }
 
 function sendSse(
@@ -32,6 +41,7 @@ function sendSse(
 ) {
   res.write(`event: ${event}\n`);
   res.write(`data: ${JSON.stringify(data)}\n\n`);
+  flushSse(res);
 }
 
 function parseKind(value: unknown): DownloadKind | "all" {
@@ -39,6 +49,21 @@ function parseKind(value: unknown): DownloadKind | "all" {
   if (value === "video") return "video";
   if (value === "thumb") return "thumb";
   return "mp3";
+}
+
+function resolveOverallUserPercent(
+  stepIndex: number,
+  stepTotal: number,
+  userPercent: number,
+): number {
+  return ((stepIndex + userPercent / 100) / stepTotal) * 100;
+}
+
+function readUserPercent(progress: DownloadProgress): number {
+  if (typeof progress.userPercent === "number") {
+    return Math.min(100, Math.max(0, progress.userPercent));
+  }
+  return 0;
 }
 
 function startingMessage(kind: DownloadKind | "all"): string {
@@ -64,6 +89,18 @@ app.use("/skins", express.static(skinsDir));
 app.get("/api/skins", async (_req, res) => {
   const skins = await listSkins(skinsDir);
   res.json(skins);
+});
+
+app.delete("/api/skins/:id", async (req, res) => {
+  const id = typeof req.params.id === "string" ? req.params.id.trim() : "";
+  const result = await deleteSkin(skinsDir, id);
+
+  if (!result.ok) {
+    res.status(result.status).json({ error: result.error });
+    return;
+  }
+
+  res.json({ ok: true });
 });
 
 app.get("/api/download", async (req, res) => {
@@ -92,12 +129,15 @@ app.get("/api/download", async (req, res) => {
 
   downloadInProgress = true;
 
+  req.socket.setNoDelay(true);
+  req.socket.setTimeout(0);
+
   beginSse(res);
 
   sendSse(res, "progress", {
-    phase: "starting",
-    percent: 0,
-    message: startingMessage(kind),
+    phase: "download",
+    userPercent: 0,
+    message: kind === "all" ? startingMessage(kind) : undefined,
   });
 
   try {
@@ -114,18 +154,20 @@ app.get("/api/download", async (req, res) => {
           outputDir,
           kind: stepKind,
           onProgress: (progress) => {
-            const stepPercent =
-              progress.percent ??
-              (progress.phase === "extract" || progress.phase === "merge" ? 100 : 0);
-            const overallPercent =
-              ((i + stepPercent / 100) / ALL_DOWNLOAD_KINDS.length) * 100;
+            const userPercent = readUserPercent(progress);
+            const overallUserPercent = resolveOverallUserPercent(
+              i,
+              ALL_DOWNLOAD_KINDS.length,
+              userPercent,
+            );
 
             sendSse(res, "progress", {
               ...progress,
               step: stepKind,
               stepIndex: i + 1,
               stepTotal: ALL_DOWNLOAD_KINDS.length,
-              percent: overallPercent,
+              userPercent,
+              overallUserPercent,
             });
           },
         });
@@ -147,7 +189,11 @@ app.get("/api/download", async (req, res) => {
         outputDir,
         kind,
         onProgress: (progress) => {
-          sendSse(res, "progress", progress);
+          sendSse(res, "progress", {
+            ...progress,
+            step: kind,
+            userPercent: readUserPercent(progress),
+          });
         },
       });
 

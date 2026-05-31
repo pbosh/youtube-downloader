@@ -54,6 +54,15 @@ cd youtube-downloader && npm run cli -- "https://www.youtube.com/watch?v=VIDEO_I
 - Single videos only (no playlists).
 - YouTube source audio is often lower than 320 kbps; files are encoded at 320 kbps as requested.
 - Thumbnail and metadata are embedded when available.
+- Download progress covers the full pipeline (download, convert, merge, metadata, artwork) — see [docs/progress-pipeline.md](docs/progress-pipeline.md).
+
+## Progress testing
+
+```bash
+npm run screenshot:all "https://www.youtube.com/watch?v=VIDEO_ID"
+```
+
+Captures UI screenshots every 2s during **Download ALL** (requires Playwright; run `npm install` first).
 
 ## Desktop app
 

@@ -1,14 +1,26 @@
 import { spawn } from "node:child_process";
 import { access } from "node:fs/promises";
 import path from "node:path";
+import {
+  detectPipelineSignal,
+  PipelineProgressTracker,
+} from "./pipeline-progress.js";
 
 export type DownloadKind = "mp3" | "video" | "thumb";
-export type DownloadPhase = "download" | "extract" | "merge" | "done";
+export type DownloadPhase =
+  | "download"
+  | "extract"
+  | "merge"
+  | "finalize"
+  | "done";
 
 export interface DownloadProgress {
   phase: DownloadPhase;
+  stage?: string;
+  userPercent?: number;
   percent?: number;
   message?: string;
+  etaSeconds?: number;
 }
 
 export interface DownloadOptions {
@@ -23,10 +35,67 @@ export interface DownloadResult {
   title: string;
 }
 
+const ANSI_RE = /\x1b\[[0-9;]*m/g;
+
+function stripAnsi(line: string): string {
+  return line.replace(ANSI_RE, "").trim();
+}
+
+function createStreamLineHandler(onLine: (line: string) => void) {
+  let buffer = "";
+
+  const push = (chunk: string) => {
+    buffer += chunk.replace(/\r/g, "\n");
+    const lines = buffer.split("\n");
+    buffer = lines.pop() ?? "";
+
+    for (const line of lines) {
+      const trimmed = stripAnsi(line);
+      if (trimmed) onLine(trimmed);
+    }
+  };
+
+  const flush = () => {
+    if (!buffer) return;
+    const trimmed = stripAnsi(buffer);
+    buffer = "";
+    if (trimmed) onLine(trimmed);
+  };
+
+  return { push, flush };
+}
 const DOWNLOAD_RE =
   /\[download\]\s+(\d+(?:\.\d+)?)%\s+of\s+~?\s*([\d.]+\s*\w+)/i;
-const EXTRACT_RE = /\[ExtractAudio\]\s+Destination:\s+(.+)/i;
-const MERGER_RE = /\[Merger\]\s+Merging formats into "(.+)"/i;
+const DOWNLOAD_DEST_RE = /\[download\]\s+Destination:\s+(.+)/i;
+const DOWNLOAD_FRAGMENT_RE =
+  /\[download\]\s+(?:Downloading\s+)?(?:item\s+)?(\d+) of (\d+)/i;
+const EXTRACT_DEST_RE = /\[ExtractAudio\]\s+Destination:\s+(.+)/i;
+const MERGER_DEST_RE = /\[Merger\]\s+Merging formats into "(.+)"/i;
+const POSTPROC_DEST_RE =
+  /Adding (?:metadata|thumbnail) to "(.+)"/i;
+const ETA_RE = /ETA\s+(\d+(?::\d+)+)/i;
+
+function parseEtaSeconds(line: string): number | undefined {
+  const match = line.match(ETA_RE);
+  if (!match) return undefined;
+
+  const parts = match[1]!.split(":").map((part) => Number.parseInt(part, 10));
+  if (parts.some((part) => Number.isNaN(part))) return undefined;
+
+  if (parts.length === 2) {
+    return parts[0]! * 60 + parts[1]!;
+  }
+
+  if (parts.length === 3) {
+    return parts[0]! * 3600 + parts[1]! * 60 + parts[2]!;
+  }
+
+  return undefined;
+}
+
+function downloadMessage(sizeLabel: string): string {
+  return sizeLabel;
+}
 
 async function findYtDlp(): Promise<string> {
   const candidates = ["yt-dlp", "yt-dlp.exe"];
@@ -60,12 +129,10 @@ function buildArgs(
     url,
     "--no-playlist",
     "--newline",
+    "--no-colors",
+    "--progress",
     "-o",
     outputTemplate,
-    "--print",
-    "after_move:filepath",
-    "--print",
-    "title",
   ];
 
   if (kind === "mp3") {
@@ -112,81 +179,126 @@ export async function downloadMedia(
   const outputTemplate = path.join(options.outputDir, "%(title)s.%(ext)s");
   const args = buildArgs(options.kind, options.url, outputTemplate);
 
-  const printedLines: string[] = [];
   const startedAt = Date.now();
+  let sawByteProgress = false;
+  let outputPath = "";
+  const tracker = new PipelineProgressTracker(options.kind);
+
+  tracker.start((payload) => {
+    options.onProgress?.({
+      phase: payload.phase,
+      stage: payload.stage,
+      userPercent: payload.userPercent,
+      etaSeconds: payload.etaSeconds,
+      message: payload.message,
+    });
+  });
 
   await new Promise<void>((resolve, reject) => {
-    const proc = spawn(ytDlp, args, { stdio: ["ignore", "pipe", "pipe"] });
+    const proc = spawn(ytDlp, args, {
+      stdio: ["ignore", "pipe", "pipe"],
+      env: { ...process.env, PYTHONUNBUFFERED: "1" },
+    });
 
     const handleLine = (line: string) => {
-      const trimmed = line.trim();
-      if (!trimmed) return;
+      const signal = detectPipelineSignal(options.kind, line);
+      if (signal?.action === "prepare") tracker.notePrepare();
+      if (signal?.action === "artwork") tracker.noteArtworkFetch(signal.detail);
+      if (signal?.action === "extract") tracker.noteExtract(signal.detail);
+      if (signal?.action === "merge") tracker.noteMerge(signal.detail);
+      if (signal?.action === "finalize") tracker.noteFinalize(signal.detail);
+      if (signal?.action === "download-done") tracker.noteDownloadComplete(signal.detail);
 
-      const downloadMatch = trimmed.match(DOWNLOAD_RE);
+      const extractDest = line.match(EXTRACT_DEST_RE);
+      if (extractDest) {
+        outputPath = extractDest[1]!.trim();
+      }
+
+      const mergerDest = line.match(MERGER_DEST_RE);
+      if (mergerDest) {
+        outputPath = mergerDest[1]!.trim();
+      }
+
+      const postDest = line.match(POSTPROC_DEST_RE);
+      if (postDest) {
+        outputPath = postDest[1]!.trim();
+      }
+
+      const downloadMatch = line.match(DOWNLOAD_RE);
       if (downloadMatch) {
-        options.onProgress?.({
-          phase: "download",
-          percent: parseFloat(downloadMatch[1]!),
-          message: downloadMatch[2]!.trim(),
-        });
+        sawByteProgress = true;
+        const rawPercent = parseFloat(downloadMatch[1]!);
+        const sizeMessage = downloadMatch[2]!.trim();
+        const etaSeconds = parseEtaSeconds(line);
+
+        tracker.noteDownloadProgress(
+          rawPercent,
+          etaSeconds,
+          downloadMessage(sizeMessage),
+        );
         return;
       }
 
-      if (trimmed.includes("[ExtractAudio]")) {
-        const extractMatch = trimmed.match(EXTRACT_RE);
-        options.onProgress?.({
-          phase: "extract",
-          message: extractMatch?.[1]?.trim() ?? "Converting to MP3...",
-        });
+      const destMatch = line.match(DOWNLOAD_DEST_RE);
+      if (destMatch) {
         return;
       }
 
-      if (trimmed.includes("[Merger]")) {
-        const mergeMatch = trimmed.match(MERGER_RE);
-        options.onProgress?.({
-          phase: "merge",
-          percent: 100,
-          message: mergeMatch?.[1]?.trim() ?? "Merging video and audio...",
-        });
+      const fragmentMatch = line.match(DOWNLOAD_FRAGMENT_RE);
+      if (fragmentMatch) {
+        sawByteProgress = true;
+        const index = parseInt(fragmentMatch[1]!, 10);
+        const total = parseInt(fragmentMatch[2]!, 10);
+        const percent = total > 0 ? (index / total) * 100 : 0;
+        const elapsedSec = Math.max(1, (Date.now() - startedAt) / 1000);
+        const etaSeconds =
+          index > 0 && total > index
+            ? (elapsedSec / index) * (total - index)
+            : undefined;
+
+        tracker.noteDownloadProgress(
+          percent,
+          etaSeconds,
+          etaSeconds != null
+            ? `Fragment ${index}/${total}`
+            : `Fragment ${index}/${total}`,
+        );
+        return;
+      }
+
+      if (
+        options.kind === "thumb" &&
+        !sawByteProgress &&
+        (line.includes("[info]") ||
+          line.includes("Thumbnail") ||
+          line.includes("Writing"))
+      ) {
+        sawByteProgress = true;
+        tracker.noteDownloadProgress(45, 12, "Fetching thumbnail...");
+        return;
       }
     };
 
-    let stdoutBuffer = "";
-    proc.stdout.on("data", (chunk: Buffer) => {
-      stdoutBuffer += chunk.toString();
-      const lines = stdoutBuffer.split("\n");
-      stdoutBuffer = lines.pop() ?? "";
+    const stdoutStream = createStreamLineHandler(handleLine);
+    const stderrStream = createStreamLineHandler(handleLine);
 
-      for (const line of lines) {
-        const trimmed = line.trim();
-        if (trimmed) printedLines.push(trimmed);
-      }
+    proc.stdout.on("data", (chunk: Buffer) => {
+      stdoutStream.push(chunk.toString());
     });
 
-    let stderrBuffer = "";
     proc.stderr.on("data", (chunk: Buffer) => {
-      stderrBuffer += chunk.toString();
-      const lines = stderrBuffer.split("\n");
-      stderrBuffer = lines.pop() ?? "";
-      for (const line of lines) handleLine(line);
+      stderrStream.push(chunk.toString());
     });
 
     proc.on("error", reject);
     proc.on("close", (code) => {
-      if (stderrBuffer) handleLine(stderrBuffer);
-      if (stdoutBuffer.trim()) printedLines.push(stdoutBuffer.trim());
+      stdoutStream.flush();
+      stderrStream.flush();
 
       if (code === 0) resolve();
       else reject(new Error(`yt-dlp exited with code ${code}`));
     });
   });
-
-  let outputPath =
-    printedLines.find(
-      (line) => path.isAbsolute(line) && path.extname(line) !== "",
-    ) ?? "";
-  const title =
-    printedLines.find((line) => line !== outputPath && line.length > 0) ?? "";
 
   if (!outputPath && options.kind === "thumb") {
     outputPath = await findNewestImageSince(options.outputDir, startedAt - 1000);
@@ -198,11 +310,22 @@ export async function downloadMedia(
 
   await access(outputPath);
 
-  options.onProgress?.({ phase: "done", message: outputPath });
+  tracker.complete((payload) => {
+    options.onProgress?.({
+      phase: payload.phase,
+      stage: payload.stage,
+      userPercent: payload.userPercent,
+      etaSeconds: payload.etaSeconds,
+      message: outputPath,
+    });
+  });
+  tracker.stop();
+
+  const title = path.basename(outputPath, path.extname(outputPath));
 
   return {
     outputPath,
-    title: title || path.basename(outputPath, path.extname(outputPath)),
+    title,
   };
 }
 
