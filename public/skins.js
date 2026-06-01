@@ -398,9 +398,57 @@ const SkinSystem = (() => {
     requestAnimationFrame(() => finishCss());
   }
 
+  function isVideoBannerFilename(name) {
+    return /\.(mp4|webm|mov|m4v)$/i.test(name || "");
+  }
+
+  function skinPickerThumbUrl(skin) {
+    const skinBase = `/skins/${encodeURIComponent(skin.id)}`;
+
+    if (skin.bannerThumb) {
+      return `${skinBase}/${encodeURIComponent(skin.bannerThumb)}`;
+    }
+
+    if (skin.banner && !isVideoBannerFilename(skin.banner)) {
+      return `${skinBase}/${encodeURIComponent(skin.banner)}`;
+    }
+
+    return null;
+  }
+
   function applyBanner(skin) {
     const bannerEl = document.querySelector(".scene-banner");
     if (!bannerEl) return;
+
+    let videoEl = bannerEl.querySelector(".scene-banner-video");
+
+    if (skin.banner && isVideoBannerFilename(skin.banner)) {
+      const src = `/skins/${encodeURIComponent(skin.id)}/${encodeURIComponent(skin.banner)}`;
+
+      if (!videoEl) {
+        videoEl = document.createElement("video");
+        videoEl.className = "scene-banner-video";
+        videoEl.loop = true;
+        videoEl.muted = true;
+        videoEl.autoplay = true;
+        videoEl.playsInline = true;
+        videoEl.setAttribute("aria-hidden", "true");
+        bannerEl.appendChild(videoEl);
+      }
+
+      const resolved = new URL(src, window.location.href).href;
+      if (videoEl.src !== resolved) {
+        videoEl.src = src;
+      }
+
+      bannerEl.style.backgroundImage = "";
+      void videoEl.play();
+      return;
+    }
+
+    if (videoEl) {
+      videoEl.remove();
+    }
 
     if (skin.banner) {
       bannerEl.style.backgroundImage = `url(/skins/${encodeURIComponent(skin.id)}/${encodeURIComponent(skin.banner)})`;
@@ -411,10 +459,10 @@ const SkinSystem = (() => {
 
   function skinPickerIcon(skin) {
     const skinBase = `/skins/${encodeURIComponent(skin.id)}`;
+    const thumbUrl = skinPickerThumbUrl(skin);
 
-    if (skin.banner) {
-      const bannerUrl = `${skinBase}/${encodeURIComponent(skin.banner)}`;
-      return `<span class="skin-option-thumb skin-option-banner" style="background-image:url(${bannerUrl})" aria-hidden="true"></span>`;
+    if (thumbUrl) {
+      return `<span class="skin-option-thumb skin-option-banner" style="background-image:url(${thumbUrl})" aria-hidden="true"></span>`;
     }
 
     if (skin.iconImage) {

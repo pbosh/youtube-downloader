@@ -1,6 +1,6 @@
 # Skin incoming folder
 
-**Queue:** drop new banner PNG/JPEG/WebP files here.
+**Queue:** drop new banner PNG/JPEG/WebP or MP4/MOV/WebM files here.
 
 **Done:** finished sources live in [`_DONE/`](_DONE/) locally (not committed to git — large PNGs). Use it to track what's complete vs still queued.
 

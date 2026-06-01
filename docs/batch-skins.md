@@ -26,11 +26,13 @@ When scaffold succeeds (default), the source is **copied** to `_DONE/` and **rem
 
 ---
 
-## 1. Drop images
+## 1. Drop images or videos
 
 Put new banner files in the **top level** of `assets/skin-incoming/` (not inside `_DONE/`).
 
-Supported: `.png`, `.jpg`, `.jpeg`, `.webp`
+**Still images:** `.png`, `.jpg`, `.jpeg`, `.webp`
+
+**Video banners:** `.mp4`, `.mov`, `.webm`, `.m4v` — requires **ffmpeg** on PATH. Scaffold copies the video as `banner.<ext>`, extracts frame 0 to `banner-thumb.jpg` for the skin picker, and loops the video in the app banner. There is no still-image fallback if playback fails.
 
 ---
 
@@ -91,7 +93,7 @@ Without manifest entries, id = `freequency-<slug-from-filename>` and title = **t
 ]
 ```
 
-Hash matches against existing `skins/*/banner.jpg` (or legacy `.png`) are also detected automatically.
+Hash matches against existing `skins/*/banner.*` assets are also detected automatically.
 
 ---
 
@@ -125,7 +127,9 @@ npm run scaffold:skins -- --jpeg-quality 70
 npm run optimize:skin-banners
 ```
 
-**What the script creates** for each image:
+**What the script creates** for each queued file:
+
+**Still image:**
 
 ```
 skins/<id>/
@@ -134,12 +138,22 @@ skins/<id>/
   skin.css       ← reference template + auto-extracted palette
 ```
 
-Each banner is converted **per image** to `banner.jpg` at **quality 70** (7 on a 0–10 scale). Override with `--jpeg-quality N` (Pillow 1–95). Alpha is flattened onto white before encode.
+**Video:**
+
+```
+skins/<id>/
+  banner.mp4     ← copied from source (extension preserved)
+  banner-thumb.jpg ← frame 0 for skin picker thumbnail
+  skin.json      ← banner + bannerThumb fields
+  skin.css       ← palette sampled from frame 0
+```
+
+Each still banner is converted **per image** to `banner.jpg` at **quality 70** (7 on a 0–10 scale). Override with `--jpeg-quality N` (Pillow 1–95). Alpha is flattened onto white before encode. Video thumbs use the same JPEG quality setting.
 
 Reference templates:
 
-- **Dark** → [`skins/freequency-sharing/`](../skins/freequency-sharing/)
-- **Light** → [`skins/freequency-mist/`](../skins/freequency-mist/)
+- **Dark** → [`skins/_scaffold-dark/`](../skins/_scaffold-dark/)
+- **Light** → [`skins/_scaffold-light/`](../skins/_scaffold-light/)
 
 Scaffold picks **dark vs light** from image luminance (`auto`) or manifest override. Progress fill follows deck mode (brighter on dark, darker on light). Skins are **ready to use** after scaffold — refresh the app.
 
@@ -170,12 +184,13 @@ npm run screenshot:all
 | | Scaffold output |
 |--|-----------------|
 | Folder + banner + skin.json | ✓ |
-| `--banner-aspect-ratio` | ✓ from image pixels |
-| `--neu-*` + accent hex from image | ✓ sampled palette |
+| `--banner-aspect-ratio` | ✓ from image/video pixels |
+| `--neu-*` + accent hex from image | ✓ sampled palette (frame 0 for video) |
 | `@skin-analysis` | auto hex + metadata |
 | Body / banner motion & frame | reference template |
 | Progress fill (dark/light rule) | ✓ |
-| Banner JPEG (quality 7/10) | ✓ per image |
+| Banner JPEG (quality 7/10) | ✓ per still image |
+| Video banner loop in app | ✓ when source is video |
 | Source tracking in `_DONE/` | ✓ (default) |
 
 ---
@@ -183,6 +198,8 @@ npm run screenshot:all
 ## Troubleshooting
 
 **`Missing dependency: Pillow`** — run `npm run scaffold:skins` once (creates venv) or `pip install -r scripts/requirements.txt`
+
+**Video scaffold fails** — install ffmpeg: `brew install ffmpeg`
 
 **Skin already exists** — use `--force` or pick a new `id` in the manifest
 

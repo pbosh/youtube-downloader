@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 """
-Scaffold neumorphism skins from banner images.
+Scaffold neumorphism skins from banner images or videos.
 
-Reads PNG/JPEG/WebP from assets/skin-incoming/, writes skins/<id>/ with banner.jpg,
-skin.json, and a color-mapped skin.css copied from a reference template.
+Reads PNG/JPEG/WebP/MP4/MOV/WebM from assets/skin-incoming/, writes skins/<id>/ with
+banner media, skin.json, and a color-mapped skin.css copied from a reference template.
+
+Videos: copies the source video as banner.<ext>, extracts frame 0 to banner-thumb.jpg
+for the picker, and samples palette from that frame.
 
 See docs/batch-skins.md.
 """
@@ -32,6 +35,16 @@ except ImportError:
     sys.exit(1)
 
 from skin_image import BANNER_FILENAME, JPEG_QUALITY_DEFAULT, save_banner_jpeg
+from skin_video import (
+    BANNER_THUMB_FILENAME,
+    VIDEO_SUFFIXES,
+    banner_video_filename,
+    extract_first_frame_image,
+    is_video_path,
+    video_dimensions,
+    write_banner_thumb_from_video,
+    write_video_banner,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 INCOMING_DIR = REPO_ROOT / "assets" / "skin-incoming"
@@ -40,10 +53,11 @@ MANIFEST_PATH = REPO_ROOT / "scripts" / "skin-manifest.json"
 NAME_WORDS_PATH = REPO_ROOT / "scripts" / "skin-name-words.txt"
 SKINS_DIR = REPO_ROOT / "skins"
 
-DARK_TEMPLATE = SKINS_DIR / "freequency-sharing" / "skin.css"
-LIGHT_TEMPLATE = SKINS_DIR / "freequency-mist" / "skin.css"
+DARK_TEMPLATE = SKINS_DIR / "_scaffold-dark" / "skin.css"
+LIGHT_TEMPLATE = SKINS_DIR / "_scaffold-light" / "skin.css"
 
 IMAGE_SUFFIXES = {".png", ".jpg", ".jpeg", ".webp"}
+INCOMING_SUFFIXES = IMAGE_SUFFIXES | VIDEO_SUFFIXES
 
 DARK_VAR_ORDER = [
     "neu-base",
@@ -645,17 +659,138 @@ def scaffold_one(
         return skin_dir
 
 
-def collect_images(incoming: Path) -> list[Path]:
+def scaffold_one_video(
+    video_path: Path,
+    entry: dict,
+    *,
+    force: bool,
+    dry_run: bool,
+    jpeg_quality: int = JPEG_QUALITY_DEFAULT,
+) -> Path | None:
+    skin_dir = SKINS_DIR / entry["id"]
+    if skin_dir.exists() and not force:
+        print(f"  skip (exists): {entry['id']} — use --force to overwrite")
+        return None
+
+    width, height = video_dimensions(video_path)
+    frame = extract_first_frame_image(video_path)
+    try:
+        avg_lum, neutrals, accents = sample_image_colors(frame)
+    finally:
+        frame.close()
+
+    mode = entry["template"]
+    if mode == "auto":
+        mode = "light" if avg_lum > 0.45 else "dark"
+
+    template_path = LIGHT_TEMPLATE if mode == "light" else DARK_TEMPLATE
+    if not template_path.is_file():
+        raise FileNotFoundError(f"Missing template CSS: {template_path}")
+
+    css = template_path.read_text(encoding="utf-8")
+    var_order = LIGHT_VAR_ORDER if mode == "light" else DARK_VAR_ORDER
+    palette_keys = LIGHT_PALETTE_KEYS if mode == "light" else DARK_PALETTE_KEYS
+    reference_vars = parse_css_hex_vars(css, var_order)
+
+    palette = (
+        build_light_palette(neutrals, accents)
+        if mode == "light"
+        else build_dark_palette(neutrals, accents)
+    )
+
+    banner_name = banner_video_filename(video_path)
+
+    css = apply_palette_to_css(css, reference_vars, palette)
+    css = update_progress_fill(css, mode)
+    css = replace_analysis_block(
+        css,
+        scaffold_analysis_block(
+            width=width,
+            height=height,
+            title=entry["title"],
+            mode=mode,
+            palette=palette,
+            palette_keys=palette_keys,
+            banner_name=banner_name,
+        ),
+    )
+    css = update_banner_aspect(css, width, height)
+    css = update_summary(css, entry["title"], mode)
+
+    skin_json = json.dumps(
+        {
+            "title": entry["title"],
+            "icon": entry["icon"],
+            "banner": banner_name,
+            "bannerThumb": BANNER_THUMB_FILENAME,
+            "mode": mode,
+        },
+        indent=2,
+    ) + "\n"
+
+    if dry_run:
+        print(
+            f"  would create: skins/{entry['id']}/ "
+            f"({mode}, {width}x{height}, {banner_name} + {BANNER_THUMB_FILENAME} "
+            f"from {video_path.name})"
+        )
+        return skin_dir
+
+    skin_dir.mkdir(parents=True, exist_ok=True)
+    write_video_banner(video_path, skin_dir)
+    write_banner_thumb_from_video(video_path, skin_dir, quality=jpeg_quality)
+    (skin_dir / "skin.json").write_text(skin_json, encoding="utf-8")
+    (skin_dir / "skin.css").write_text(css, encoding="utf-8")
+    print(
+        f"  created: skins/{entry['id']}/ "
+        f"({mode}, {width}×{height}, {banner_name} + {BANNER_THUMB_FILENAME})"
+    )
+    return skin_dir
+
+
+def collect_incoming(incoming: Path) -> list[Path]:
     files = []
     for path in sorted(incoming.iterdir()):
         if not path.is_file():
             continue
         if path.name.startswith("."):
             continue
-        if path.suffix.lower() not in IMAGE_SUFFIXES:
+        if path.suffix.lower() not in INCOMING_SUFFIXES:
             continue
         files.append(path)
     return files
+
+
+def collect_images(incoming: Path) -> list[Path]:
+    return [path for path in collect_incoming(incoming) if not is_video_path(path)]
+
+
+def skin_banner_asset_paths(skin_dir: Path) -> list[Path]:
+    paths: list[Path] = []
+    json_path = skin_dir / "skin.json"
+    if json_path.is_file():
+        try:
+            data = json.loads(json_path.read_text(encoding="utf-8"))
+            banner = data.get("banner")
+            if isinstance(banner, str) and banner.strip():
+                candidate = skin_dir / banner.strip()
+                if candidate.is_file():
+                    paths.append(candidate)
+        except (json.JSONDecodeError, OSError):
+            pass
+
+    for name in (
+        BANNER_FILENAME,
+        "banner.png",
+        "banner.mp4",
+        "banner.webm",
+        "banner.mov",
+        "banner.m4v",
+    ):
+        candidate = skin_dir / name
+        if candidate.is_file() and candidate not in paths:
+            paths.append(candidate)
+    return paths
 
 
 def skin_banner_hashes() -> dict[str, set[str]]:
@@ -664,10 +799,7 @@ def skin_banner_hashes() -> dict[str, set[str]]:
     for skin_dir in sorted(SKINS_DIR.iterdir()):
         if not skin_dir.is_dir() or skin_dir.name.startswith("_"):
             continue
-        for name in (BANNER_FILENAME, "banner.png"):
-            banner = skin_dir / name
-            if not banner.is_file():
-                continue
+        for banner in skin_banner_asset_paths(skin_dir):
             digest = file_sha256(banner)
             by_hash.setdefault(digest, set()).add(skin_dir.name)
     return by_hash
@@ -679,14 +811,14 @@ def mark_done_from_existing_skins(
     *,
     dry_run: bool,
 ) -> int:
-    """Copy completed queue images into _DONE/ (hash match or manifest list)."""
+    """Copy completed queue files into _DONE/ (hash match or manifest list)."""
     matched = 0
-    images = collect_images(incoming)
-    if not images:
-        print(f"No queued images in {incoming}")
+    queued = collect_incoming(incoming)
+    if not queued:
+        print(f"No queued media in {incoming}")
         return 0
 
-    by_name = {path.name: path for path in images}
+    by_name = {path.name: path for path in queued}
     banners = skin_banner_hashes()
 
     done_list = manifest.get("done", [])
@@ -707,7 +839,7 @@ def mark_done_from_existing_skins(
 
     remaining = list(by_name.values())
     if banners and remaining:
-        print(f"Hash-matching {len(remaining)} queued image(s) against existing skins …")
+        print(f"Hash-matching {len(remaining)} queued file(s) against existing skins …")
         for image_path in remaining:
             digest = file_sha256(image_path)
             skin_ids = banners.get(digest)
@@ -761,8 +893,8 @@ def main() -> int:
         "--mark-done",
         action="store_true",
         help=(
-            "Copy queued images that match an existing skins/*/banner.jpg (or "
-            ".png) into assets/skin-incoming/_DONE/ and remove them from the queue"
+            "Copy queued files that match an existing skins/*/banner asset into "
+            "assets/skin-incoming/_DONE/ and remove them from the queue"
         ),
     )
     parser.add_argument(
@@ -784,7 +916,7 @@ def main() -> int:
     incoming = args.incoming.resolve()
     if not incoming.is_dir():
         print(f"Incoming folder not found: {incoming}", file=sys.stderr)
-        print("Create it and drop banner images there.", file=sys.stderr)
+        print("Create it and drop banner images or videos there.", file=sys.stderr)
         return 1
 
     if args.mark_done:
@@ -792,9 +924,12 @@ def main() -> int:
         mark_done_from_existing_skins(incoming, manifest, dry_run=args.dry_run)
         return 0
 
-    images = collect_images(incoming)
-    if not images:
-        print(f"No images in {incoming} (.png, .jpg, .jpeg, .webp)")
+    media = collect_incoming(incoming)
+    if not media:
+        print(
+            f"No media in {incoming} "
+            f"(.png, .jpg, .jpeg, .webp, .mp4, .mov, .webm, .m4v)"
+        )
         return 0
 
     manifest = load_manifest(args.manifest.resolve())
@@ -808,12 +943,12 @@ def main() -> int:
         return 1
     used_titles = load_existing_titles()
 
-    print(f"Scaffolding {len(images)} image(s) from {incoming} …")
-    for image_path in images:
+    print(f"Scaffolding {len(media)} file(s) from {incoming} …")
+    for media_path in media:
         entry = resolve_entry(
-            image_path.name,
+            media_path.name,
             manifest,
-            image_path.stem,
+            media_path.stem,
             name_words=name_words,
             used_titles=used_titles,
         )
@@ -829,9 +964,10 @@ def main() -> int:
                         entry["icon"] = existing["icon"].strip()
                 except (json.JSONDecodeError, OSError):
                     pass
+        scaffold_fn = scaffold_one_video if is_video_path(media_path) else scaffold_one
         try:
-            skin_dir = scaffold_one(
-                image_path,
+            skin_dir = scaffold_fn(
+                media_path,
                 entry,
                 force=args.force,
                 dry_run=args.dry_run,
@@ -842,12 +978,12 @@ def main() -> int:
             created_count += 1
             if archive:
                 archive_to_done(
-                    image_path,
+                    media_path,
                     dry_run=args.dry_run,
                     reason=f"scaffolded skins/{entry['id']}",
                 )
         except Exception as exc:  # noqa: BLE001 — CLI should report and continue
-            print(f"  error: {image_path.name}: {exc}", file=sys.stderr)
+            print(f"  error: {media_path.name}: {exc}", file=sys.stderr)
 
     print()
     if created_count:

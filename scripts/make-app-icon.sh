@@ -2,15 +2,40 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-SOURCE="$ROOT/skins/freequency-qui-the-free-creativity-logo-he-488d-bd76-d4610c118b16-2/banner.jpg"
 ICONSET="$ROOT/macos/AppIcon.iconset"
 ICNS="$ROOT/macos/AppIcon.icns"
 WORK="$ROOT/macos/.icon-work"
 
-if [[ ! -f "$SOURCE" ]]; then
-  echo "Harbor Long banner not found: $SOURCE" >&2
+pick_icon_source() {
+  local candidates=(
+    "$ROOT/skins/freequency-qui-the-free-creativity-logo-he-488d-bd76-d4610c118b16-2/banner.jpg"
+  )
+
+  while IFS= read -r thumb; do
+    candidates+=("$thumb")
+  done < <(find "$ROOT/skins" -mindepth 2 -maxdepth 2 -name 'banner-thumb.jpg' | sort | head -1)
+
+  while IFS= read -r banner; do
+    candidates+=("$banner")
+  done < <(find "$ROOT/skins" -mindepth 2 -maxdepth 2 -name 'banner.jpg' | sort | head -1)
+
+  local candidate
+  for candidate in "${candidates[@]}"; do
+    if [[ -f "$candidate" ]]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+SOURCE="$(pick_icon_source)" || {
+  echo "No banner image found under skins/ for app icon generation." >&2
   exit 1
-fi
+}
+
+echo "App icon source: ${SOURCE#$ROOT/}"
 
 rm -rf "$ICONSET" "$WORK"
 mkdir -p "$ICONSET" "$WORK"

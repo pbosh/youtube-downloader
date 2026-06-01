@@ -8,8 +8,10 @@ export interface SkinMeta {
   /** Deck brightness — from progress fill in skin.css (same rule as button progress bar) */
   mode: "light" | "dark";
   iconImage?: string;
-  /** Banner filename in the skin folder, e.g. banner.jpg */
+  /** Banner filename in the skin folder, e.g. banner.jpg or banner.mp4 */
   banner?: string;
+  /** Picker thumbnail for video banners (frame 0), e.g. banner-thumb.jpg */
+  bannerThumb?: string;
 }
 
 interface SkinJson {
@@ -17,7 +19,14 @@ interface SkinJson {
   icon?: unknown;
   iconImage?: unknown;
   banner?: unknown;
+  bannerThumb?: unknown;
   mode?: unknown;
+}
+
+const VIDEO_BANNER_PATTERN = /\.(mp4|webm|mov|m4v)$/i;
+
+function isVideoBannerFilename(name: string): boolean {
+  return VIDEO_BANNER_PATTERN.test(name);
 }
 
 /** Same rule as scaffold progress fill: black mix = light deck, white mix = dark deck. */
@@ -87,7 +96,14 @@ export async function listSkins(skinsDir: string): Promise<SkinMeta[]> {
       if (typeof parsed.banner === "string" && parsed.banner.trim()) {
         skin.banner = parsed.banner.trim();
       } else {
-        for (const name of ["banner.jpg", "banner.png"]) {
+        for (const name of [
+          "banner.jpg",
+          "banner.png",
+          "banner.mp4",
+          "banner.webm",
+          "banner.mov",
+          "banner.m4v",
+        ]) {
           try {
             await access(path.join(skinDir, name));
             skin.banner = name;
@@ -95,6 +111,17 @@ export async function listSkins(skinsDir: string): Promise<SkinMeta[]> {
           } catch {
             // try next candidate
           }
+        }
+      }
+
+      if (typeof parsed.bannerThumb === "string" && parsed.bannerThumb.trim()) {
+        skin.bannerThumb = parsed.bannerThumb.trim();
+      } else if (skin.banner && isVideoBannerFilename(skin.banner)) {
+        try {
+          await access(path.join(skinDir, "banner-thumb.jpg"));
+          skin.bannerThumb = "banner-thumb.jpg";
+        } catch {
+          // video skin without a thumb
         }
       }
 
