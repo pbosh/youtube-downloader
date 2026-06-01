@@ -1,0 +1,91 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+PORT="${PORT:-47823}"
+HOST="${HOST:-127.0.0.1}"
+APP_URL="http://${HOST}:${PORT}/"
+
+find_node() {
+  if command -v node >/dev/null 2>&1; then
+    command -v node
+    return 0
+  fi
+  for candidate in /opt/homebrew/bin/node /usr/local/bin/node; do
+    if [[ -x "$candidate" ]]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+alert() {
+  osascript -e "display alert \"YouTube Downloader\" message \"$1\" as warning" >/dev/null 2>&1 || true
+}
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+BUNDLE_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+APP_ROOT="$BUNDLE_ROOT/Contents/Resources/app"
+
+if [[ ! -d "$APP_ROOT/dist" ]]; then
+  alert "App files are missing. Rebuild with: npm run build:mac"
+  exit 1
+fi
+
+if ! NODE="$(find_node)"; then
+  alert "Node.js is required. Install with: brew install node"
+  exit 1
+fi
+
+if ! command -v yt-dlp >/dev/null 2>&1; then
+  alert "yt-dlp is required. Install with: brew install yt-dlp"
+  exit 1
+fi
+
+if ! command -v ffmpeg >/dev/null 2>&1; then
+  alert "ffmpeg is required. Install with: brew install ffmpeg"
+  exit 1
+fi
+
+open_browser() {
+  open "$APP_URL"
+}
+
+wait_for_server() {
+  local tries=0
+  while (( tries < 50 )); do
+    if curl -sf "$APP_URL" >/dev/null 2>&1; then
+      return 0
+    fi
+    sleep 0.1
+    tries=$((tries + 1))
+  done
+  return 1
+}
+
+if lsof -ti:"$PORT" >/dev/null 2>&1; then
+  open_browser
+  exit 0
+fi
+
+export PORT HOST
+cd "$APP_ROOT"
+
+"$NODE" dist/server.js &
+SERVER_PID=$!
+
+cleanup() {
+  if [[ -n "${SERVER_PID:-}" ]] && kill -0 "$SERVER_PID" 2>/dev/null; then
+    kill "$SERVER_PID" 2>/dev/null || true
+    wait "$SERVER_PID" 2>/dev/null || true
+  fi
+}
+trap cleanup EXIT INT TERM
+
+if ! wait_for_server; then
+  alert "The server did not start. Check Console for errors."
+  exit 1
+fi
+
+open_browser
+wait "$SERVER_PID"

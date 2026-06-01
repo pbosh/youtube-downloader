@@ -9,3 +9,6 @@ assets/skin-incoming/_DONE/*
 !assets/skin-incoming/_DONE/.gitkeep
 *.mp3
 .DS_Store
+macos/.icon-work/
+macos/AppIcon.iconset/
+resources/bin/

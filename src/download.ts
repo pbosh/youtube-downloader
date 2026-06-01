@@ -1,6 +1,7 @@
 import { spawn } from "node:child_process";
 import { access } from "node:fs/promises";
 import path from "node:path";
+import { resolveFfmpegLocation, resolveYtDlp } from "./binaries.js";
 import {
   detectPipelineSignal,
   PipelineProgressTracker,
@@ -98,32 +99,14 @@ function downloadMessage(sizeLabel: string): string {
 }
 
 async function findYtDlp(): Promise<string> {
-  const candidates = ["yt-dlp", "yt-dlp.exe"];
-
-  for (const candidate of candidates) {
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const proc = spawn(candidate, ["--version"], { stdio: "ignore" });
-        proc.on("error", reject);
-        proc.on("close", (code) =>
-          code === 0 ? resolve() : reject(new Error(`exit ${code}`)),
-        );
-      });
-      return candidate;
-    } catch {
-      // try next candidate
-    }
-  }
-
-  throw new Error(
-    "yt-dlp not found. Install it with: brew install yt-dlp",
-  );
+  return resolveYtDlp();
 }
 
 function buildArgs(
   kind: DownloadKind,
   url: string,
   outputTemplate: string,
+  ffmpegLocation?: string,
 ): string[] {
   const common = [
     url,
@@ -135,9 +118,19 @@ function buildArgs(
     outputTemplate,
   ];
 
+  const withFfmpeg =
+    ffmpegLocation != null && ffmpegLocation.length > 0
+      ? [
+          ...common.slice(0, 3),
+          "--ffmpeg-location",
+          ffmpegLocation,
+          ...common.slice(3),
+        ]
+      : common;
+
   if (kind === "mp3") {
     return [
-      ...common.slice(0, 3),
+      ...withFfmpeg.slice(0, 3),
       "-x",
       "--audio-format",
       "mp3",
@@ -145,30 +138,30 @@ function buildArgs(
       "320K",
       "--embed-thumbnail",
       "--add-metadata",
-      ...common.slice(3),
+      ...withFfmpeg.slice(3),
     ];
   }
 
   if (kind === "video") {
     return [
-      ...common.slice(0, 3),
+      ...withFfmpeg.slice(0, 3),
       "-f",
       "bv*+ba/b",
       "--merge-output-format",
       "mp4",
       "--add-metadata",
       "--embed-thumbnail",
-      ...common.slice(3),
+      ...withFfmpeg.slice(3),
     ];
   }
 
   return [
-    ...common.slice(0, 3),
+    ...withFfmpeg.slice(0, 3),
     "--skip-download",
     "--write-thumbnail",
     "--convert-thumbnails",
     "jpg",
-    ...common.slice(3),
+    ...withFfmpeg.slice(3),
   ];
 }
 
@@ -176,8 +169,9 @@ export async function downloadMedia(
   options: DownloadOptions,
 ): Promise<DownloadResult> {
   const ytDlp = await findYtDlp();
+  const ffmpegLocation = await resolveFfmpegLocation();
   const outputTemplate = path.join(options.outputDir, "%(title)s.%(ext)s");
-  const args = buildArgs(options.kind, options.url, outputTemplate);
+  const args = buildArgs(options.kind, options.url, outputTemplate, ffmpegLocation);
 
   const startedAt = Date.now();
   let sawByteProgress = false;

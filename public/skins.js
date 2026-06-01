@@ -349,6 +349,14 @@ const SkinSystem = (() => {
     }
   }
 
+  function requestDesktopResize() {
+    window.electronDesktop?.requestResize?.();
+  }
+
+  function markSkinReady() {
+    document.documentElement.classList.add("skin-ready");
+  }
+
   function applySkin(skin) {
     if (!skin) return;
 
@@ -359,11 +367,35 @@ const SkinSystem = (() => {
       document.head.appendChild(activeSkinStylesheet);
     }
 
-    activeSkinStylesheet.href = `/skins/${encodeURIComponent(skin.id)}/skin.css`;
+    const href = `/skins/${encodeURIComponent(skin.id)}/skin.css`;
+
     document.documentElement.dataset.skin = skin.id;
     setSavedSkinId(skin.id);
     applyBanner(skin);
-    render();
+
+    let cssReady = false;
+    const finishCss = () => {
+      if (cssReady) return;
+      if (!activeSkinStylesheet.href.endsWith(href) || !activeSkinStylesheet.sheet) {
+        return;
+      }
+      cssReady = true;
+      render();
+      markSkinReady();
+      requestDesktopResize();
+    };
+
+    if (activeSkinStylesheet.href.endsWith(href) && activeSkinStylesheet.sheet) {
+      finishCss();
+      return;
+    }
+
+    activeSkinStylesheet.onload = () => finishCss();
+    activeSkinStylesheet.href = href;
+
+    // Cached stylesheets often skip onload in WebKit/Chromium.
+    queueMicrotask(() => finishCss());
+    requestAnimationFrame(() => finishCss());
   }
 
   function applyBanner(skin) {
@@ -680,6 +712,7 @@ const SkinSystem = (() => {
     if (catalog.length === 0) {
       shuffleButton?.setAttribute("disabled", "true");
       favFilterButton?.setAttribute("disabled", "true");
+      markSkinReady();
       return;
     }
 

@@ -66,4 +66,4 @@ Captures UI screenshots every 2s during **Download ALL** (requires Playwright; r
 
 ## Desktop app
 
-See [docs/desktop-app.md](docs/desktop-app.md) for guidance on packaging this as a downloadable desktop app.
+See [docs/desktop-app.md](docs/desktop-app.md) for building the standalone Electron Mac app.

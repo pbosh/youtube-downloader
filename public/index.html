@@ -153,6 +153,19 @@
         padding: 24px;
       }
 
+      html.desktop-app,
+      html.desktop-app body {
+        min-height: 0;
+        height: auto;
+        overflow: hidden;
+      }
+
+      html.desktop-app body {
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+      }
+
       main {
         width: min(var(--main-max-width), 100%);
         background: color-mix(in srgb, var(--panel) calc(var(--panel-opacity) * 100%), transparent);
@@ -1004,11 +1017,13 @@
 
       function showConsole() {
         copyRegion.classList.add("show-activity");
+        window.electronDesktop?.requestResize?.();
       }
 
       function showDescriptionPanel() {
         copyRegion.classList.remove("show-activity");
         resetUi();
+        window.electronDesktop?.requestResize?.();
       }
 
       function appendLog(message) {

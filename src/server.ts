@@ -1,6 +1,6 @@
 import express from "express";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import {
   downloadMedia,
   ensureOutputDir,
@@ -14,8 +14,11 @@ import { deleteSkin, listSkins } from "./skins.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(__dirname, "..", "public");
-const skinsDir = path.resolve(__dirname, "..", "skins");
-const port = Number(process.env.PORT) || 47823;
+const skinsDir = process.env.SKINS_DIR
+  ? path.resolve(process.env.SKINS_DIR)
+  : path.resolve(__dirname, "..", "skins");
+const defaultPort = Number(process.env.PORT) || 47823;
+const defaultHost = process.env.HOST ?? "127.0.0.1";
 
 let downloadInProgress = false;
 
@@ -214,7 +217,33 @@ app.get("/api/download", async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`YouTube downloader running at http://localhost:${port}`);
-  console.log(`Saving files to: ${getDesktopPath()}`);
-});
+export interface ServerInfo {
+  port: number;
+  host: string;
+  url: string;
+}
+
+export function startServer(
+  port = defaultPort,
+  host = defaultHost,
+): Promise<ServerInfo> {
+  return new Promise((resolve) => {
+    app.listen(port, host, () => {
+      const browseHost =
+        host === "127.0.0.1" || host === "::1" ? "localhost" : host;
+      const url = `http://${browseHost}:${port}`;
+      console.log(`YouTube downloader running at ${url}`);
+      console.log(`Bound to ${host}:${port} (not reachable from other machines)`);
+      console.log(`Saving files to: ${getDesktopPath()}`);
+      resolve({ port, host, url });
+    });
+  });
+}
+
+const isDirectRun =
+  process.argv[1] &&
+  import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
+
+if (isDirectRun) {
+  startServer();
+}

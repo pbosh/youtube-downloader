@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "Download YouTube videos as 320 kbps MP3 with progress feedback",
   "type": "module",
+  "main": "electron/main.cjs",
   "bin": {
     "youtube-mp3": "./dist/index.js"
   },
@@ -12,6 +13,11 @@
     "web": "PORT=47823 tsx src/server.ts",
     "kill": "lsof -ti:47823 | xargs kill -9 2>/dev/null || true",
     "launch": "npm run kill && npm run web",
+    "electron:dev": "npm run build && electron .",
+    "electron:fetch-binaries": "bash scripts/fetch-binaries.sh",
+    "build:mac": "bash scripts/build-electron-mac.sh",
+    "build:mac-launcher": "bash scripts/build-macos-app.sh",
+    "install:mac": "bash scripts/install-macos-app.sh",
     "screenshot:all": "node scripts/screenshot-all-download.mjs",
     "scaffold:skins": "bash scripts/run-scaffold-skins.sh",
     "mark-skins-done": "bash scripts/run-scaffold-skins.sh --mark-done",
@@ -30,8 +36,41 @@
     "@types/cli-progress": "^3.11.6",
     "@types/express": "^5.0.3",
     "@types/node": "^25.9.1",
+    "electron": "^35.0.0",
+    "electron-builder": "^25.1.8",
     "playwright": "^1.52.0",
     "tsx": "^4.22.3",
     "typescript": "^6.0.3"
+  },
+  "build": {
+    "appId": "com.pbosh.youtube-downloader",
+    "productName": "YouTube Downloader",
+    "directories": {
+      "output": "dist/electron",
+      "buildResources": "macos"
+    },
+    "files": [
+      "dist/**/*",
+      "public/**/*",
+      "skins/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "asar": true,
+    "asarUnpack": [
+      "skins/**"
+    ],
+    "extraResources": [
+      {
+        "from": "resources/bin/${platform}/${arch}",
+        "to": "bin",
+        "filter": ["**/*"]
+      }
+    ],
+    "mac": {
+      "category": "public.app-category.utilities",
+      "icon": "AppIcon.icns",
+      "target": ["dmg", "dir"]
+    }
   }
 }
