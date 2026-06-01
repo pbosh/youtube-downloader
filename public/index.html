@@ -42,7 +42,7 @@
         --scrollbar-thumb: rgba(127, 127, 127, 0.35);
         --cycle-color: var(--text);
         --cycle-active-color: var(--accent);
-        --skin-control-icon-size: 1.75rem;
+        --skin-control-icon-size: 1.25rem;
 
         --body-glow-opacity: 1;
         --panel-opacity: 1;
@@ -170,6 +170,10 @@
         overflow: hidden;
       }
 
+      main:focus {
+        outline: none;
+      }
+
       .scene-banner {
         display: var(--banner-display);
         position: relative;
@@ -226,19 +230,22 @@
 
       .skin-controls {
         flex: 0 0 auto;
-        display: flex;
-        flex-direction: column;
+        display: grid;
+        grid-template-columns: repeat(2, 36px);
+        grid-template-rows: 36px 30px;
         align-items: center;
         justify-content: center;
-        gap: 8px;
-        width: auto;
-        min-width: 36px;
-        height: 68px;
-        padding: 0 6px;
+        gap: 4px;
+        width: 84px;
+        min-width: 84px;
+        height: 72px;
+        padding: 0;
       }
 
       .skin-control {
         flex: 0 0 auto;
+        width: 36px;
+        height: 36px;
         padding: 0;
         border: 0;
         border-radius: 0;
@@ -246,9 +253,8 @@
         box-shadow: none;
         color: var(--cycle-color);
         line-height: 1;
-        display: flex;
-        align-items: center;
-        justify-content: center;
+        display: grid;
+        place-items: center;
         opacity: 1;
         transition:
           color var(--transition-speed) ease,
@@ -256,20 +262,19 @@
           transform var(--transition-speed) ease;
       }
 
-      .skin-control-icon {
-        font-size: var(--skin-control-icon-size);
-        line-height: 1;
+      .skin-control-icon,
+      .skin-control-icon-svg {
+        display: grid;
+        place-items: center;
+        width: var(--skin-control-icon-size);
+        height: var(--skin-control-icon-size);
+        flex-shrink: 0;
+        line-height: 0;
         pointer-events: none;
         transition:
           transform var(--transition-speed) ease,
           opacity var(--transition-speed) ease,
           filter var(--transition-speed) ease;
-      }
-
-      .skin-control-icon-svg {
-        display: block;
-        width: var(--skin-control-icon-size);
-        height: var(--skin-control-icon-size);
       }
 
       .skin-control-icon-svg svg {
@@ -279,40 +284,127 @@
       }
 
       .skin-shuffle {
-        color: var(--cycle-color);
+        color: var(--text);
       }
 
-      .skin-shuffle .skin-control-icon {
+      .skin-shuffle .skin-control-icon,
+      .skin-shuffle .skin-control-icon-svg {
         opacity: 0.78;
       }
 
-      .skin-shuffle:hover:not(:disabled) .skin-control-icon {
+      .skin-shuffle:hover:not(:disabled) .skin-control-icon,
+      .skin-shuffle:hover:not(:disabled) .skin-control-icon-svg {
         opacity: 1;
       }
 
       .skin-fav-filter {
-        color: var(--muted);
+        color: var(--text);
       }
 
-      .skin-control:hover:not(:disabled) {
-        background: transparent;
-      }
-
-      .skin-control:hover:not(:disabled) .skin-control-icon {
-        transform: scale(1.08);
-      }
-
-      .skin-control:disabled {
-        opacity: 0.35;
-        cursor: not-allowed;
+      .skin-fav-filter .skin-control-icon,
+      .skin-fav-filter .skin-control-icon-svg {
+        opacity: 0.78;
       }
 
       .skin-fav-filter.active {
         color: var(--accent);
       }
 
-      .skin-fav-filter.active .skin-control-icon {
+      .skin-fav-filter.active .skin-control-icon,
+      .skin-fav-filter.active .skin-control-icon-svg {
         opacity: 1;
+      }
+
+      .skin-fav-filter .skin-control-icon-svg svg {
+        fill: none;
+      }
+
+      .skin-fav-filter.active .skin-control-icon-svg svg {
+        fill: currentColor;
+      }
+
+      .skin-mode-switch {
+        grid-column: 1 / -1;
+        position: relative;
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        align-items: center;
+        width: 76px;
+        height: 30px;
+        padding: 3px;
+        border-radius: 999px;
+        border: 0;
+        justify-self: center;
+        background: var(--neu-inset-light, color-mix(in srgb, var(--text) 14%, var(--panel)));
+        box-shadow:
+          inset 2px 2px 5px var(--neu-inset-dark, rgba(0, 0, 0, 0.32)),
+          inset -2px -2px 4px var(--neu-inset-light, rgba(255, 255, 255, 0.1)),
+          0 0 0 1px color-mix(in srgb, var(--text) 10%, transparent);
+      }
+
+      .skin-mode-switch-thumb {
+        position: absolute;
+        top: 3px;
+        bottom: 3px;
+        left: 3px;
+        width: calc(50% - 3px);
+        border-radius: 999px;
+        background: var(--neu-raised-light, color-mix(in srgb, var(--text) 16%, var(--panel)));
+        box-shadow:
+          2px 2px 6px var(--neu-raised-dark, rgba(0, 0, 0, 0.28)),
+          -2px -2px 5px var(--neu-inset-light, rgba(255, 255, 255, 0.14)),
+          0 0 0 1px color-mix(in srgb, var(--text) 14%, transparent);
+        transition: left var(--transition-speed) ease;
+        pointer-events: none;
+      }
+
+      .skin-mode-switch[data-mode="dark"] .skin-mode-switch-thumb {
+        left: calc(50%);
+      }
+
+      .skin-mode-switch-option {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        place-items: center;
+        width: 100%;
+        height: 100%;
+        min-height: 24px;
+        padding: 0;
+        border: 0;
+        border-radius: 999px;
+        background: transparent;
+        box-shadow: none;
+        color: var(--text);
+        opacity: 0.72;
+        cursor: pointer;
+        transition:
+          color var(--transition-speed) ease,
+          opacity var(--transition-speed) ease;
+      }
+
+      .skin-mode-switch-option .skin-control-icon-svg {
+        width: 1rem;
+        height: 1rem;
+      }
+
+      .skin-mode-switch-option.is-active {
+        color: var(--cycle-active-color, var(--accent));
+        opacity: 1;
+      }
+
+      .skin-mode-switch-option:hover {
+        opacity: 1;
+      }
+
+      .skin-control:hover:not(:disabled) {
+        background: transparent;
+        transform: scale(1.06);
+      }
+
+      .skin-control:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
       }
 
       .skin-scroll {
@@ -323,8 +415,9 @@
         align-items: center;
         overflow-x: auto;
         padding-bottom: 4px;
-        scrollbar-width: thin;
-        min-height: 68px;
+        scrollbar-width: none;
+        -ms-overflow-style: none;
+        min-height: 72px;
       }
 
       .skin-scroll-empty {
@@ -336,12 +429,7 @@
       }
 
       .skin-scroll::-webkit-scrollbar {
-        height: 6px;
-      }
-
-      .skin-scroll::-webkit-scrollbar-thumb {
-        background: var(--scrollbar-thumb);
-        border-radius: 999px;
+        display: none;
       }
 
       .skin-option {
@@ -711,6 +799,7 @@
       }
 
       .skin-bar .skin-control,
+      .skin-bar .skin-mode-switch-option,
       .skin-bar .skin-option-select,
       .skin-bar .skin-fav-toggle {
         cursor: pointer;
@@ -718,7 +807,7 @@
     </style>
   </head>
   <body>
-    <main>
+    <main tabindex="-1">
       <div class="scene-banner" aria-hidden="true"></div>
 
       <div class="skin-bar">
@@ -730,7 +819,7 @@
               class="skin-control skin-shuffle"
             >
               <span class="skin-control-icon skin-control-icon-svg" aria-hidden="true">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" preserveAspectRatio="xMidYMid meet">
                   <path d="M16 3h5v5" />
                   <path d="M4 20 20 4" />
                   <path d="M21 16v5h-5" />
@@ -745,8 +834,55 @@
               class="skin-control skin-fav-filter"
               aria-pressed="false"
             >
-              <span class="skin-control-icon" aria-hidden="true">♥</span>
+              <span class="skin-control-icon skin-control-icon-svg" aria-hidden="true">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" preserveAspectRatio="xMidYMid meet">
+                  <path d="M19 14c1.49-1.46 3-3.21 3-5.5A5.5 5.5 0 0 0 16.5 3c-1.76 0-3 .5-4.5 2-1.5-1.5-2.74-2-4.5-2A5.5 5.5 0 0 0 2 8.5c0 2.3 1.5 4.05 3 5.5l7 7Z" />
+                </svg>
+              </span>
             </button>
+            <div
+              id="skin-mode-switch"
+              class="skin-mode-switch"
+              role="group"
+              data-mode="light"
+              aria-label="Skin brightness: showing light skins"
+            >
+              <span class="skin-mode-switch-thumb" aria-hidden="true"></span>
+              <button
+                type="button"
+                id="skin-mode-light"
+                class="skin-mode-switch-option is-active"
+                aria-pressed="true"
+                title="Light skins"
+              >
+                <span class="skin-control-icon-svg" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" preserveAspectRatio="xMidYMid meet">
+                    <circle cx="12" cy="12" r="4" />
+                    <path d="M12 2v2" />
+                    <path d="M12 20v2" />
+                    <path d="m4.93 4.93 1.41 1.41" />
+                    <path d="m17.66 17.66 1.41 1.41" />
+                    <path d="M2 12h2" />
+                    <path d="M20 12h2" />
+                    <path d="m6.34 17.66-1.41 1.41" />
+                    <path d="m19.07 4.93-1.41 1.41" />
+                  </svg>
+                </span>
+              </button>
+              <button
+                type="button"
+                id="skin-mode-dark"
+                class="skin-mode-switch-option"
+                aria-pressed="false"
+                title="Dark skins"
+              >
+                <span class="skin-control-icon-svg" aria-hidden="true">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" preserveAspectRatio="xMidYMid meet">
+                    <path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z" />
+                  </svg>
+                </span>
+              </button>
+            </div>
           </div>
           <div class="skin-scroll" id="skin-scroll" aria-label="UI skins"></div>
         </div>

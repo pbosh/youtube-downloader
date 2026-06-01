@@ -1,4 +1,6 @@
 {
-  "title": "Freequency",
-  "icon": "△"
+  "title": "Passive Abstract",
+  "icon": "\u25b3",
+  "banner": "banner.jpg",
+  "mode": "dark"
 }

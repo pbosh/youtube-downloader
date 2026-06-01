@@ -12,7 +12,11 @@
     "web": "PORT=47823 tsx src/server.ts",
     "kill": "lsof -ti:47823 | xargs kill -9 2>/dev/null || true",
     "launch": "npm run kill && npm run web",
-    "screenshot:all": "node scripts/screenshot-all-download.mjs"
+    "screenshot:all": "node scripts/screenshot-all-download.mjs",
+    "scaffold:skins": "bash scripts/run-scaffold-skins.sh",
+    "mark-skins-done": "bash scripts/run-scaffold-skins.sh --mark-done",
+    "optimize:skin-banners": "bash scripts/run-scaffold-skins.sh --optimize-banners",
+    "label:skin-modes": "bash scripts/run-scaffold-skins.sh --label-modes"
   },
   "engines": {
     "node": ">=18"

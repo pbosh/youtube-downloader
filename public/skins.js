@@ -6,23 +6,28 @@ const SkinSystem = (() => {
     activeSkin: "youtube-downloader-skin",
     favorites: "youtube-downloader-skin-favorites",
     favFilter: "youtube-downloader-skin-fav-filter",
+    modeFilter: "youtube-downloader-skin-mode-filter",
   };
 
   const LONG_PRESS_MS = 550;
   const LONG_PRESS_MOVE_PX = 20;
 
-  /** @type {Array<{ id: string, title: string, icon: string, iconImage?: string, banner?: string }>} */
+  /** @type {Array<{ id: string, title: string, icon: string, mode: "light"|"dark", iconImage?: string, banner?: string }>} */
   let catalog = [];
 
   const state = {
     favFilter: false,
     favorites: new Set(),
+    modeFilterMode: "light",
   };
 
   let activeSkinStylesheet = document.getElementById("skin-stylesheet");
 
   let shuffleButton = null;
   let favFilterButton = null;
+  let modeSwitch = null;
+  let lightModeFilterButton = null;
+  let darkModeFilterButton = null;
   let scrollContainer = null;
 
   let longPressTimer = null;
@@ -76,6 +81,36 @@ const SkinSystem = (() => {
     localStorage.setItem(STORAGE.favFilter, String(state.favFilter));
   }
 
+  /** @returns {"light" | "dark"} */
+  function readModeFilter() {
+    try {
+      const raw = localStorage.getItem(STORAGE.modeFilter);
+      if (!raw) return "light";
+
+      const parsed = JSON.parse(raw);
+      if (parsed === "light" || parsed === "dark") return parsed;
+
+      if (parsed && typeof parsed === "object") {
+        if (parsed.dark === true && parsed.light !== true) return "dark";
+        if (parsed.light === true && parsed.dark !== true) return "light";
+      }
+    } catch {
+      // fall through
+    }
+    return "light";
+  }
+
+  function writeModeFilter() {
+    localStorage.setItem(
+      STORAGE.modeFilter,
+      JSON.stringify(state.modeFilterMode),
+    );
+  }
+
+  function skinMatchesModeFilter(skin) {
+    return skin.mode === state.modeFilterMode;
+  }
+
   function getSavedSkinId() {
     return localStorage.getItem(STORAGE.activeSkin);
   }
@@ -111,8 +146,12 @@ const SkinSystem = (() => {
 
   /** Skins shown in the horizontal picker (catalog order is shuffled each launch). */
   function getPickerSkins() {
-    if (!state.favFilter) return catalog;
-    return getFavoriteSkins();
+    let skins = catalog;
+    if (state.favFilter) {
+      skins = skins.filter((skin) => state.favorites.has(skin.id));
+    }
+    skins = skins.filter((skin) => skinMatchesModeFilter(skin));
+    return skins;
   }
 
   function getShufflePool(excludeId = null) {
@@ -154,6 +193,13 @@ const SkinSystem = (() => {
     render();
   }
 
+  function setModeFilter(mode) {
+    if (mode !== "light" && mode !== "dark") return;
+    state.modeFilterMode = mode;
+    writeModeFilter();
+    render();
+  }
+
   function pickRandomSkin(excludeId) {
     const pool = getShufflePool(excludeId);
     if (pool.length === 0) return null;
@@ -163,6 +209,87 @@ const SkinSystem = (() => {
   function shuffleToRandomSkin() {
     const skin = pickRandomSkin(getCurrentSkinId());
     if (skin) applySkin(skin);
+  }
+
+  /** Block skin arrows only when the user is actively editing text. */
+  function shouldBlockSkinArrowKeys(target) {
+    if (!target || !(target instanceof Element)) return false;
+    if (target.isContentEditable) return true;
+
+    const tag = target.tagName;
+    if (tag === "TEXTAREA" || tag === "SELECT") return true;
+
+    if (tag === "INPUT") {
+      const input = /** @type {HTMLInputElement} */ (target);
+      const textLike =
+        !input.type ||
+        input.type === "text" ||
+        input.type === "search" ||
+        input.type === "url" ||
+        input.type === "email" ||
+        input.type === "tel" ||
+        input.type === "password";
+      return textLike && input.value.length > 0;
+    }
+
+    return false;
+  }
+
+  function getAppFocusRoot() {
+    return document.querySelector("main");
+  }
+
+  function ensureAppKeyboardFocus() {
+    const root = getAppFocusRoot();
+    if (!(root instanceof HTMLElement)) return;
+    root.focus({ preventScroll: true });
+  }
+
+  function scrollActiveSkinIntoView() {
+    if (!scrollContainer) return;
+    const active = scrollContainer.querySelector(".skin-option.active");
+    active?.scrollIntoView({ behavior: "smooth", block: "nearest", inline: "center" });
+  }
+
+  /** Step to previous (-1) or next (+1) skin in the picker list; wraps at ends. */
+  function stepSkin(delta) {
+    const pickerSkins = getPickerSkins();
+    if (pickerSkins.length === 0) return;
+
+    const currentId = getCurrentSkinId();
+    let index = pickerSkins.findIndex((skin) => skin.id === currentId);
+    if (index === -1) index = 0;
+
+    const nextIndex =
+      (index + delta + pickerSkins.length) % pickerSkins.length;
+    const nextSkin = pickerSkins[nextIndex];
+    if (!nextSkin) return;
+
+    applySkin(nextSkin);
+    scrollActiveSkinIntoView();
+  }
+
+  function onSkinKeyDown(event) {
+    if (event.key !== "ArrowLeft" && event.key !== "ArrowRight") return;
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+    if (shouldBlockSkinArrowKeys(event.target)) return;
+
+    const pickerSkins = getPickerSkins();
+    if (pickerSkins.length <= 1) return;
+
+    event.preventDefault();
+    stepSkin(event.key === "ArrowRight" ? 1 : -1);
+  }
+
+  function onAppPointerDown(event) {
+    if (
+      event.target.closest(
+        "input, textarea, select, button, a, [contenteditable='true']",
+      )
+    ) {
+      return;
+    }
+    ensureAppKeyboardFocus();
   }
 
   function updateControlButtons() {
@@ -200,6 +327,25 @@ const SkinSystem = (() => {
 
       favFilterButton.title = favTitle;
       favFilterButton.setAttribute("aria-label", favTitle);
+    }
+
+    if (modeSwitch) {
+      modeSwitch.dataset.mode = state.modeFilterMode;
+      modeSwitch.setAttribute(
+        "aria-label",
+        `Skin brightness: showing ${state.modeFilterMode} skins`,
+      );
+    }
+
+    for (const [mode, button] of /** @type {const} */ ([
+      ["light", lightModeFilterButton],
+      ["dark", darkModeFilterButton],
+    ])) {
+      if (!button) continue;
+      const active = state.modeFilterMode === mode;
+      button.classList.toggle("is-active", active);
+      button.setAttribute("aria-pressed", String(active));
+      button.title = `${mode === "light" ? "Light" : "Dark"} skins`;
     }
   }
 
@@ -253,8 +399,10 @@ const SkinSystem = (() => {
     const pickerSkins = getPickerSkins();
 
     if (pickerSkins.length === 0) {
-      scrollContainer.innerHTML =
-        '<p class="skin-scroll-empty">Favorite a skin with ♡ to add it here.</p>';
+      const emptyMessage = state.favFilter
+        ? "Favorite a skin with ♡ to add it here."
+        : `No ${state.modeFilterMode} skins match the current filters.`;
+      scrollContainer.innerHTML = `<p class="skin-scroll-empty">${emptyMessage}</p>`;
       return;
     }
 
@@ -464,7 +612,6 @@ const SkinSystem = (() => {
         return;
       }
 
-      const wasActive = getCurrentSkinId() === id;
       catalog = catalog.filter((entry) => entry.id !== id);
 
       if (state.favorites.has(id)) {
@@ -477,16 +624,7 @@ const SkinSystem = (() => {
         writeFavFilter();
       }
 
-      if (wasActive) {
-        const nextSkin =
-          findSkin(getSavedSkinId()) ||
-          (state.favFilter ? getFavoriteSkins()[0] : null) ||
-          catalog[0];
-        if (nextSkin) applySkin(nextSkin);
-        else render();
-      } else {
-        render();
-      }
+      render();
     } catch {
       window.alert("Could not delete skin.");
     }
@@ -495,14 +633,24 @@ const SkinSystem = (() => {
   async function init() {
     shuffleButton = document.getElementById("skin-shuffle");
     favFilterButton = document.getElementById("skin-fav-filter");
+    lightModeFilterButton = document.getElementById("skin-mode-light");
+    darkModeFilterButton = document.getElementById("skin-mode-dark");
+    modeSwitch = document.getElementById("skin-mode-switch");
     scrollContainer = document.getElementById("skin-scroll");
 
     state.favorites = readFavorites();
     state.favFilter = readFavFilter();
+    state.modeFilterMode = readModeFilter();
 
     try {
       const response = await fetch("/api/skins");
-      catalog = shuffleArray(await response.json());
+      const raw = await response.json();
+      catalog = shuffleArray(
+        raw.map((skin) => ({
+          ...skin,
+          mode: skin.mode === "light" ? "light" : "dark",
+        })),
+      );
     } catch {
       catalog = [];
     }
@@ -526,6 +674,8 @@ const SkinSystem = (() => {
     });
     shuffleButton?.addEventListener("click", shuffleToRandomSkin);
     favFilterButton?.addEventListener("click", toggleFavFilter);
+    lightModeFilterButton?.addEventListener("click", () => setModeFilter("light"));
+    darkModeFilterButton?.addEventListener("click", () => setModeFilter("dark"));
 
     if (catalog.length === 0) {
       shuffleButton?.setAttribute("disabled", "true");
@@ -534,15 +684,19 @@ const SkinSystem = (() => {
     }
 
     const savedId = getSavedSkinId();
-    const initialSkin =
-      findSkin(savedId) ||
-      (state.favFilter ? getFavoriteSkins()[0] : null) ||
-      catalog[0];
+    const initialSkin = findSkin(savedId) || catalog[0];
 
     applySkin(initialSkin);
+    ensureAppKeyboardFocus();
   }
+
+  window.addEventListener("keydown", onSkinKeyDown, true);
+  document.addEventListener("mousedown", onAppPointerDown);
 
   return { init, deleteSkin };
 })();
 
 SkinSystem.init();
+window.addEventListener("load", () => {
+  document.querySelector("main")?.focus({ preventScroll: true });
+});

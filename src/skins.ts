@@ -5,8 +5,10 @@ export interface SkinMeta {
   id: string;
   title: string;
   icon: string;
+  /** Deck brightness — from progress fill in skin.css (same rule as button progress bar) */
+  mode: "light" | "dark";
   iconImage?: string;
-  /** Banner filename in the skin folder, e.g. banner.png */
+  /** Banner filename in the skin folder, e.g. banner.jpg */
   banner?: string;
 }
 
@@ -15,6 +17,33 @@ interface SkinJson {
   icon?: unknown;
   iconImage?: unknown;
   banner?: unknown;
+  mode?: unknown;
+}
+
+/** Same rule as scaffold progress fill: black mix = light deck, white mix = dark deck. */
+function modeFromProgressFill(css: string): "light" | "dark" | null {
+  const match = css.match(/--button-progress-fill:\s*([^;]+);/);
+  if (!match) return null;
+
+  const fill = match[1].toLowerCase();
+  if (/\bblack\b/.test(fill)) return "light";
+  if (/\bwhite\b/.test(fill)) return "dark";
+  return null;
+}
+
+async function readSkinMode(
+  cssPath: string,
+  parsed: SkinJson,
+): Promise<"light" | "dark"> {
+  const css = await readFile(cssPath, "utf8");
+  const fromProgress = modeFromProgressFill(css);
+  if (fromProgress) return fromProgress;
+
+  if (parsed.mode === "light" || parsed.mode === "dark") {
+    return parsed.mode;
+  }
+
+  return css.includes("color-scheme: light") ? "light" : "dark";
 }
 
 export async function listSkins(skinsDir: string): Promise<SkinMeta[]> {
@@ -48,6 +77,7 @@ export async function listSkins(skinsDir: string): Promise<SkinMeta[]> {
         id,
         title: parsed.title.trim(),
         icon: typeof parsed.icon === "string" ? parsed.icon : "🎨",
+        mode: await readSkinMode(cssPath, parsed),
       };
 
       if (typeof parsed.iconImage === "string" && parsed.iconImage.trim()) {
@@ -57,11 +87,14 @@ export async function listSkins(skinsDir: string): Promise<SkinMeta[]> {
       if (typeof parsed.banner === "string" && parsed.banner.trim()) {
         skin.banner = parsed.banner.trim();
       } else {
-        try {
-          await access(path.join(skinDir, "banner.png"));
-          skin.banner = "banner.png";
-        } catch {
-          // No banner asset
+        for (const name of ["banner.jpg", "banner.png"]) {
+          try {
+            await access(path.join(skinDir, name));
+            skin.banner = name;
+            break;
+          } catch {
+            // try next candidate
+          }
         }
       }
 

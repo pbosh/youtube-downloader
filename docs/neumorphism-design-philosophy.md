@@ -111,7 +111,12 @@ Inset pair plus optional accent ring—field stays recessed while focused.
 Legacy tokens for optional standalone `.progress-bar` tracks. Do **not** use them for download button fills (`.btn-progress`). If a separate status bar exists, prefer one solid `--button-progress-fill` tone—not a multi-hue gradient.
 
 **`--button-progress-fill` / `--button-all-progress-fill`**  
-Solid fill for in-button progress (`.btn-progress`). Use a slightly lifted mix of `--neu-base` + white (e.g. `color-mix(in srgb, var(--neu-base) 80%, white 20%)`). Same material family as the button face—only brighter. **Never** `linear-gradient`, multi-stop spectrum, or banner accent rainbows. Width communicates progress; color must not send a second message.
+Solid fill for in-button progress (`.btn-progress`). Same material family as the button face—only a subtle step away so width reads clearly:
+
+- **Dark decks** (`color-scheme: dark`): slightly **brighter** than `--neu-base` — e.g. `color-mix(in srgb, var(--neu-base) 80%, white 20%)`.
+- **Light decks** (`color-scheme: light`): slightly **darker** than `--neu-base` — e.g. `color-mix(in srgb, var(--neu-base) 80%, black 20%)`.
+
+**Never** `linear-gradient`, multi-stop spectrum, or banner accent rainbows. Width communicates progress; color must not send a second message.
 
 **`--progress-glow`**  
 Usually `none` in neumorphism. The track is recessed; the bar should not bloom outside the trough.
@@ -741,7 +746,7 @@ Semi-transparent rounded squares behind the favorite heart—breaks the clean ov
 3. Fill `@skin-analysis` from the banner: colors, opacity notes, `mapped-*` bridges.
 4. Set `--neu-base`, `--neu-raised-light`, `--neu-raised-dark`, inset pair from sampled hex values—darken base slightly if shadows wash out.
 5. Set `--banner-aspect-ratio: W / H`; `--skin-bar-margin` top gap ≥ 16px.
-6. Map `--accent` from hero secondaries—sparingly on chrome (focus rings, active picker). Set `--button-progress-fill` to one solid lifted deck tone—not a gradient.
+6. Map `--accent` from hero secondaries—sparingly on chrome (focus rings, active picker). Set `--button-progress-fill` to one solid deck tone—not a gradient (brighter mix on dark decks, darker mix on light decks).
 7. Align `--subtitle-*` and `--button-*` type tokens; set `--placeholder` lighter than `--muted`.
 8. Verify trio buttons match; ALL uses deeper shadow only—no colored artifacts.
 9. Recess banner, skin row, form, input, progress track; extrude main, tiles, trio, ALL.

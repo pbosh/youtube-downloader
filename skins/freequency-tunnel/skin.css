@@ -1,0 +1,523 @@
+/*
+  @skin-analysis — do not remove; not used by runtime, stored for humans + future edits
+
+  source-image:        banner.jpg (1024×438) — concentric glass tunnel frame on void black;
+                       embedded light pipes (teal, cyan, orange, gold, deep red); sparkling
+                       specular highlights; warm/cool glow spill on reflective floor
+
+  ui-treatment:        Dark neumorphism soft UI — see docs/neumorphism-design-philosophy.md
+                       (glass tunnel color in banner + accent chrome only — not blur on deck)
+  motion-treatment:    slow depth drift; focus pulse teal→gold; colored shadow lift on hover;
+                       reduced-motion safe
+
+  analyzed-date:       2026-05-28
+
+  ── Opacity (what you see in the image) ──
+  opacity-hero:        glass layers ~45–75%; light pipes ~90–100%
+  opacity-midground:   floor reflection ~30–45%
+  opacity-background:  void black ~100%
+  opacity-ui-deck:     matte void deck ~100%
+  opacity-buttons:     opaque raised pills; ALL deeper extrusion, same void material
+
+  ── Blur / softness (what you see in the image) ──
+  blur-hero-edges:     crisp polished glass; refraction in banner only
+  blur-hero-glow:      orange/blue floor spill — banner only, not button fills
+  blur-atmosphere:     tunnel depth falloff — body ambient only
+  blur-ui-surface:     0px — no backdrop-filter on deck (neumorphism rule)
+  blur-button-edges:   teal/orange outer shadow tints only
+  blur-banner-frame:   deep nested inset well; teal/cyan top · orange/red bottom rim
+
+  ── Motion ──
+  motion-body:         slow tunnel drift ~21s
+  motion-focus:        URL pulse teal→gold ~4.5s
+  motion-buttons:      hover lift + warm/cool shadow; press inset
+  motion-progress:     solid neutral fill on deck
+  motion-reduced:      non-essential motion off under prefers-reduced-motion
+
+  ── Color pick (from source image → neu palette) ──
+  color-base:            void deck #0b0b0d
+  color-raised-light:      cyan lift #1a2830
+  color-raised-dark:       abyss #030304
+  color-accent-teal:       pipe teal #14b8a6
+  color-accent-cyan:       glass cyan #22d3ee
+  color-accent-gold:       warm gold #fbbf24
+  color-accent-orange:     floor glow #f97316
+  color-accent-red:        deep pipe #ef4444
+  color-text:              cool silver #c8d0d6
+  mapped-banner-aspect:    1024 / 438
+  mapped-button-shadow:    teal/orange dual extrude; ALL deeper neutral raise only
+*/
+
+:root {
+  color-scheme: dark;
+
+  --skin-analysis-summary: "Dark neumorphism: Garden Elder";
+
+  --neu-base: #0b0b0d;
+  --neu-raised-light: #1a2830;
+  --neu-raised-dark: #030304;
+  --neu-inset-light: #131518;
+  --neu-inset-dark: #020203;
+
+  --accent-teal: #14b8a6;
+  --accent-cyan: #22d3ee;
+  --accent-gold: #fbbf24;
+  --accent-orange: #f97316;
+  --accent-red: #ef4444;
+
+  --motion-shadow: 0.24s ease;
+  --motion-press: 0.14s ease;
+  --motion-reveal: 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-chrome: 0.28s ease;
+  --motion-lift: 1px;
+  --motion-spectrum: 21s ease-in-out infinite;
+  --motion-focus: 4.5s ease-in-out infinite;
+
+  --bg: var(--neu-base);
+  --panel: var(--neu-base);
+  --panel-opacity: 1;
+  --panel-blur: 0px;
+  --panel-saturate: 100%;
+  --text: #c8d0d6;
+  --muted: #686e78;
+  --placeholder: #404650;
+  --accent: var(--accent-cyan);
+  --accent-hover: var(--accent-orange);
+  --button-fill: var(--neu-base);
+  --button-fill-hover: var(--neu-base);
+  --button-text: var(--text);
+  --button-opacity: 1;
+  --button-all-fill: var(--neu-base);
+  --button-all-fill-hover: var(--neu-base);
+  --button-all-text: var(--button-text);
+  --button-progress-fill: color-mix(in srgb, var(--neu-base) 78%, white 22%);
+  --button-all-progress-fill: color-mix(in srgb, var(--neu-base) 78%, white 22%);
+  --button-all-opacity: 1;
+  --border: transparent;
+  --bg-glow: transparent;
+  --panel-shadow-color: transparent;
+  --panel-inset-glow: transparent;
+  --input-focus-ring: rgba(34, 211, 238, 0.36);
+  --input-focus-shadow:
+    inset 3px 3px 7px var(--neu-inset-dark),
+    inset -3px -3px 7px var(--neu-inset-light),
+    0 0 0 2px rgba(34, 211, 238, 0.14),
+    0 0 20px rgba(249, 115, 22, 0.1);
+  --progress-start: var(--accent-teal);
+  --progress-end: var(--accent-gold);
+  --progress-glow: none;
+  --skin-bar-bg: var(--neu-base);
+  --skin-bar-blur: 0px;
+  --skin-bar-blend-mode: normal;
+  --skin-row-blur: 0px;
+  --skin-row-opacity: 1;
+  --skin-option-bg: var(--neu-base);
+  --skin-option-active: var(--neu-base);
+  --cycle-color: #545a64;
+  --cycle-active-color: var(--accent-cyan);
+  --result-bg: var(--neu-base);
+  --result-border: transparent;
+  --error-bg: var(--neu-base);
+  --error-border: transparent;
+  --scrollbar-thumb: rgba(20, 184, 166, 0.22);
+  --transition-speed: 0.15s;
+
+  --banner-display: block;
+  --banner-size: cover;
+  --banner-position: center center;
+  --banner-aspect-ratio: 1024 / 438;
+  --banner-min-height: 160px;
+  --banner-opacity: 1;
+  --banner-saturate: 118%;
+  --banner-contrast: 106%;
+  --banner-brightness: 108%;
+  --banner-blend-mode: normal;
+
+  --main-padding: 24px;
+  --main-radius: 24px;
+  --skin-bar-margin: 16px 0 18px;
+  --skin-bar-padding: 0 0 12px;
+
+  --heading-align: center;
+  --subtitle-align: center;
+  --heading-size: 1.05rem;
+  --heading-weight: 600;
+  --heading-spacing: 0.14em;
+  --heading-transform: uppercase;
+  --heading-shadow: none;
+  --label-transform: uppercase;
+  --label-size: 0.68rem;
+  --label-spacing: 0.1em;
+  --font-family: "Avenir Next", "Segoe UI", sans-serif;
+  --subtitle-size: 1rem;
+  --subtitle-weight: 400;
+  --subtitle-line-height: 1.5;
+  --button-font-size: var(--subtitle-size);
+  --button-font-weight: var(--subtitle-weight);
+  --button-line-height: var(--subtitle-line-height);
+  --button-letter-spacing: normal;
+
+  --radius-button: 16px;
+  --radius-input: 14px;
+  --radius-form: 20px;
+  --copy-frame-height: 9.5rem;
+  --radius-skin-option: 14px;
+  --radius-skin-cycle: 14px;
+
+  --form-opacity: 1;
+  --form-blur: 0px;
+  --form-blend-mode: normal;
+  --input-opacity: 1;
+  --input-blur: 0px;
+  --input-shadow:
+    inset 4px 4px 9px var(--neu-inset-dark),
+    inset -4px -4px 9px var(--neu-inset-light);
+
+  --shadow-raise:
+    6px 6px 14px var(--neu-raised-dark),
+    -6px -6px 14px var(--neu-raised-light),
+    4px 4px 16px rgba(20, 184, 166, 0.06),
+    -4px -4px 14px rgba(34, 211, 238, 0.05),
+    0 6px 22px rgba(249, 115, 22, 0.04);
+  --shadow-raise-hover:
+    5px 5px 12px var(--neu-raised-dark),
+    -5px -5px 12px var(--neu-raised-light),
+    4px 4px 20px rgba(20, 184, 166, 0.1),
+    -4px -4px 18px rgba(34, 211, 238, 0.09),
+    0 8px 26px rgba(251, 191, 36, 0.08);
+  --shadow-raise-all:
+    9px 9px 20px var(--neu-raised-dark),
+    -9px -9px 20px var(--neu-raised-light),
+    6px 6px 24px rgba(20, 184, 166, 0.08),
+    -6px -6px 22px rgba(34, 211, 238, 0.06),
+    0 10px 32px rgba(239, 68, 68, 0.05);
+  --shadow-raise-all-hover:
+    8px 8px 18px var(--neu-raised-dark),
+    -8px -8px 18px var(--neu-raised-light),
+    5px 5px 26px rgba(20, 184, 166, 0.12),
+    -5px -5px 24px rgba(34, 211, 238, 0.1),
+    0 12px 36px rgba(249, 115, 22, 0.09);
+
+  --button-shadow: var(--shadow-raise);
+  --button-all-shadow: var(--shadow-raise-all);
+}
+
+@keyframes tunnel-depth-drift {
+  0%,
+  100% {
+    background-position:
+      50% 38%,
+      0% 52%,
+      100% 52%,
+      50% 88%;
+  }
+  50% {
+    background-position:
+      50% 36%,
+      4% 50%,
+      96% 54%,
+      50% 86%;
+  }
+}
+
+@keyframes tunnel-focus-pulse {
+  0%,
+  100% {
+    box-shadow:
+      inset 4px 4px 9px var(--neu-inset-dark),
+      inset -4px -4px 9px var(--neu-inset-light),
+      0 0 0 0 rgba(34, 211, 238, 0),
+      0 0 10px rgba(249, 115, 22, 0.04);
+  }
+  50% {
+    box-shadow:
+      inset 4px 4px 9px var(--neu-inset-dark),
+      inset -4px -4px 9px var(--neu-inset-light),
+      0 0 0 2px rgba(34, 211, 238, 0.14),
+      0 0 22px rgba(251, 191, 36, 0.12);
+  }
+}
+
+@keyframes tunnel-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+body {
+  position: relative;
+  background-color: #060608;
+  background-image:
+    radial-gradient(ellipse 40% 38% at 50% 40%, rgba(34, 211, 238, 0.1), transparent 58%),
+    radial-gradient(ellipse 38% 42% at 0% 52%, rgba(20, 184, 166, 0.1), transparent 55%),
+    radial-gradient(ellipse 38% 42% at 100% 52%, rgba(20, 184, 166, 0.1), transparent 55%),
+    radial-gradient(ellipse 50% 24% at 50% 90%, rgba(249, 115, 22, 0.08), transparent 58%);
+  background-size:
+    100% 100%,
+    120% 100%,
+    120% 100%,
+    100% 100%;
+  background-repeat: no-repeat;
+  animation: tunnel-depth-drift var(--motion-spectrum);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.88' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+p {
+  font-size: var(--subtitle-size);
+  font-weight: var(--subtitle-weight);
+  line-height: var(--subtitle-line-height);
+}
+
+main {
+  border: 0;
+  background: var(--neu-base);
+  box-shadow:
+    10px 10px 22px var(--neu-raised-dark),
+    -10px -10px 22px var(--neu-raised-light),
+    0 0 36px rgba(34, 211, 238, 0.04),
+    0 0 40px rgba(249, 115, 22, 0.03);
+  animation: tunnel-fade-in var(--motion-reveal) both;
+}
+
+.scene-banner {
+  padding: 14px;
+  background-color: var(--neu-base);
+  border-radius: 20px 20px 14px 14px;
+  background-clip: content-box;
+  background-origin: content-box;
+  box-shadow:
+    inset 8px 8px 18px var(--neu-inset-dark),
+    inset -8px -8px 18px var(--neu-inset-light),
+    inset 0 0 32px rgba(34, 211, 238, 0.04),
+    inset 0 0 48px rgba(249, 115, 22, 0.03);
+  filter: saturate(var(--banner-saturate)) contrast(var(--banner-contrast))
+    brightness(var(--banner-brightness));
+}
+
+.scene-banner::after {
+  display: block;
+  inset: 14px;
+  border-radius: 12px;
+  background: transparent;
+  opacity: 1;
+  mix-blend-mode: normal;
+  box-shadow:
+    inset 0 1px 0 rgba(34, 211, 238, 0.22),
+    inset 0 -1px 0 rgba(249, 115, 22, 0.18),
+    inset 1px 0 0 rgba(20, 184, 166, 0.14),
+    inset -1px 0 0 rgba(239, 68, 68, 0.1),
+    0 0 0 1px rgba(255, 255, 255, 0.05);
+  pointer-events: none;
+}
+
+.skin-bar {
+  border-bottom: 0;
+}
+
+.skin-bar-row {
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--neu-base);
+  border: 0;
+  box-shadow:
+    inset 4px 4px 9px var(--neu-inset-dark),
+    inset -4px -4px 9px var(--neu-inset-light);
+}
+
+.skin-option {
+  border: 0;
+  box-shadow:
+    4px 4px 9px var(--neu-raised-dark),
+    -4px -4px 9px var(--neu-raised-light),
+    2px 2px 10px rgba(20, 184, 166, 0.05),
+    -2px -2px 10px rgba(34, 211, 238, 0.04);
+  transition: box-shadow var(--motion-chrome);
+}
+
+.skin-option.active {
+  border-color: transparent;
+  box-shadow:
+    inset 3px 3px 7px var(--neu-inset-dark),
+    inset -3px -3px 7px var(--neu-inset-light),
+    0 0 0 2px rgba(34, 211, 238, 0.28);
+}
+
+.skin-fav-filter.active .skin-control-icon {
+  color: var(--accent-cyan);
+}
+
+.copy-frame {
+  padding: 20px;
+  background: var(--neu-base);
+  border: 0;
+  border-radius: var(--radius-form);
+  box-shadow:
+    inset 5px 5px 11px var(--neu-inset-dark),
+    inset -5px -5px 11px var(--neu-inset-light);
+}
+
+form {
+  padding: 20px;
+  background: var(--neu-base);
+  border: 0;
+  border-radius: var(--radius-form);
+  box-shadow:
+    inset 5px 5px 11px var(--neu-inset-dark),
+    inset -5px -5px 11px var(--neu-inset-light);
+}
+
+.url-field input {
+  border: 0;
+  background: var(--neu-base);
+  color: var(--text);
+  font-family: var(--font-family);
+  font-size: var(--subtitle-size);
+  font-weight: var(--subtitle-weight);
+  line-height: var(--subtitle-line-height);
+  box-shadow: var(--input-shadow);
+  transition: box-shadow var(--motion-shadow);
+}
+
+.url-field input:focus {
+  animation: tunnel-focus-pulse var(--motion-focus);
+}
+
+.url-field input::placeholder {
+  color: var(--placeholder);
+  font-family: var(--font-family);
+  font-size: var(--subtitle-size);
+  font-weight: var(--subtitle-weight);
+  line-height: var(--subtitle-line-height);
+  opacity: 1;
+}
+
+form button {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border: 0;
+  font-family: var(--font-family);
+  font-size: var(--button-font-size);
+  font-weight: var(--button-font-weight);
+  line-height: var(--button-line-height);
+  letter-spacing: var(--button-letter-spacing);
+  text-transform: none;
+  color: var(--button-text);
+  background: var(--neu-base);
+  box-shadow: var(--shadow-raise);
+  transition:
+    box-shadow var(--motion-shadow),
+    color var(--motion-shadow),
+    transform var(--motion-press);
+}
+
+form button:hover:not(:disabled) {
+  color: #dce4ea;
+  transform: translateY(calc(-1 * var(--motion-lift)));
+  box-shadow: var(--shadow-raise-hover);
+}
+
+form button:active:not(:disabled) {
+  transform: translateY(0) scale(0.985);
+  box-shadow:
+    inset 4px 4px 9px var(--neu-inset-dark),
+    inset -4px -4px 9px var(--neu-inset-light);
+}
+
+form button .btn-label {
+  position: relative;
+  z-index: 1;
+}
+
+form button .btn-progress {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0%;
+  border-radius: inherit;
+  background: var(--button-progress-fill);
+  opacity: 0;
+  transition: width 0.12s linear, opacity 0.15s ease;
+  z-index: 0;
+  pointer-events: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+form button.is-pending .btn-progress,
+form button.is-running .btn-progress,
+form button.is-complete .btn-progress {
+  opacity: 1;
+}
+
+form button.is-complete .btn-progress {
+  opacity: 0.92;
+}
+
+form button.all {
+  color: var(--button-all-text);
+  box-shadow: var(--shadow-raise-all);
+}
+
+form button.all:hover:not(:disabled) {
+  transform: translateY(calc(-1 * var(--motion-lift)));
+  box-shadow: var(--shadow-raise-all-hover);
+}
+
+form button.all:active:not(:disabled) {
+  transform: translateY(0) scale(0.985);
+  box-shadow:
+    inset 5px 5px 11px var(--neu-inset-dark),
+    inset -5px -5px 11px var(--neu-inset-light);
+}
+
+.console-dismiss {
+  box-shadow:
+    3px 3px 7px var(--neu-raised-dark),
+    -3px -3px 7px var(--neu-raised-light);
+}
+
+.copy-region.show-activity .console {
+  animation: tunnel-fade-in var(--motion-reveal) both;
+}
+
+.copy-region.show-activity .console-log {
+  font-family: var(--font-family);
+  font-size: 0.88rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  body {
+    animation: none;
+  }
+
+  form button:hover:not(:disabled),
+  form button.all:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+@media (max-width: 520px) {
+  :root {
+    --banner-min-height: 140px;
+    --radius-button: 14px;
+  }
+}

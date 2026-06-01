@@ -1,7 +1,7 @@
 /*
   @skin-analysis — do not remove; not used by runtime, stored for humans + future edits
 
-  source-image:        banner.png (1024×438) — dark stone monolith triangle with blazing
+  source-image:        banner.jpg (1024×438) — dark stone monolith triangle with blazingBreeze RustCedar Vapor
                        portal core (gold→orange→white); teal/cyan mist left, burnt orange
                        mist right; wet reflective floor; tiered pedestal; cinematic void
 
@@ -48,7 +48,7 @@
 :root {
   color-scheme: dark;
 
-  --skin-analysis-summary: "Dark neumorphism: void deck, teal/orange dual shadows, portal URL pulse, mist drift";
+  --skin-analysis-summary: "Dark neumorphism: Cedar Vapor";
 
   --neu-base: #161618;
   --neu-raised-light: #2a3d42;

@@ -1,7 +1,7 @@
 /*
   @skin-analysis — do not remove; not used by runtime, stored for humans + future edits
 
-  source-image:        banner.png (1024×438) — stone triangle monolith with lapis-cyan
+  source-image:        banner.jpg (1024×438) — stone triangle monolith with lapis-cyanHaven PassivePassive Abstract
                        inlays; serene carved face in inner inverted triangle; golden core
                        glow from below; teal-grey mist sky; dark still water; faint gold
                        sacred-geometry arcs behind the hero
@@ -49,7 +49,7 @@
 :root {
   color-scheme: dark;
 
-  --skin-analysis-summary: "Dark neumorphism: teal-slate deck, lapis cyan + gold accents, mist drift";
+  --skin-analysis-summary: "Dark neumorphism: Passive Abstract";
 
   --neu-base: #1e2a2e;
   --neu-raised-light: #3d5259;

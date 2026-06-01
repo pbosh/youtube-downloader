@@ -2,5 +2,10 @@ node_modules/
 dist/
 output/
 test-output/
+.venv-scaffold/
+__pycache__/
+# Local scaffold archive — keep on disk, not in git (large source PNGs)
+assets/skin-incoming/_DONE/*
+!assets/skin-incoming/_DONE/.gitkeep
 *.mp3
 .DS_Store

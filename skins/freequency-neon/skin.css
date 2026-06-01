@@ -1,7 +1,7 @@
 /*
   @skin-analysis — do not remove; not used by runtime, stored for humans + future edits
 
-  source-image:        banner.png (1024×438) — equilateral neon triangle on misty void;
+  source-image:        banner.jpg (1024×438) — equilateral neon triangle on misty void;
                        left edge hot magenta-red, right edge cyan, base warm gold-orange;
                        white-hot line cores with colored halos; dark concrete floor with
                        tri-color pool reflection; film grain; synthwave atmosphere
@@ -49,7 +49,7 @@
 :root {
   color-scheme: dark;
 
-  --skin-analysis-summary: "Dark neumorphism: void deck, tri-neon accents (magenta/cyan/gold), synth mist";
+  --skin-analysis-summary: "Dark neumorphism: Hazy Triangle";
 
   --neu-base: #121618;
   --neu-raised-light: #1e2e32;

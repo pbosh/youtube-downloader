@@ -1,0 +1,503 @@
+/*
+  @skin-analysis — do not remove; not used by runtime, stored for humans + future edits
+
+  source-image:        banner.jpg (1024×438) — 3D infinity symbol in sterile sci-fiSynapse PalettePassive Flow
+                       corridor; left loop glows cyan/teal, right loop warm orange-red;
+                       pearlescent metal surface; white recessed wall panels with cyan
+                       light strips; dark circuit-grid floor with reflections
+
+  ui-treatment:        Dark neumorphism soft UI — see docs/neumorphism-design-philosophy.md
+  motion-treatment:    slow corridor glow drift; cyan↔coral URL focus pulse; dual-tint
+                       shadow lift on hover; reduced-motion safe
+
+  analyzed-date:       2026-05-28
+
+  ── Opacity (what you see in the image) ──
+  opacity-hero:        infinity symbol ~100%; internal glow ~80–100%
+  opacity-midground:   floor grid reflections ~30–45%; wall strips ~70%
+  opacity-background:  white panels ~95%; floor void ~100%
+  opacity-ui-deck:     metallic charcoal deck ~100%
+  opacity-buttons:     opaque raised pills; ALL deeper extrusion, same material
+
+  ── Blur / softness (what you see in the image) ──
+  blur-hero-edges:     smooth 3D loops; bloom in banner only
+  blur-hero-glow:      cyan/coral halos — banner only, not button fills
+  blur-atmosphere:     clinical diffuse ceiling light — body wash only
+  blur-ui-surface:     0px — shadow depth only
+  blur-button-edges:   dual cyan/coral shadow tint
+  blur-banner-frame:   deep recessed well; cyan top / coral bottom inner rim
+
+  ── Motion ──
+  motion-body:         slow dual-glow drift ~24s
+  motion-focus:        URL pulse cyan→coral ~5s
+  motion-buttons:      hover lift + glow shadow; press inset
+  motion-progress:     solid neutral fill on deck
+  motion-reduced:      non-essential motion off under prefers-reduced-motion
+
+  ── Color pick (from source image → neu palette) ──
+  color-base:            floor deck #1a1f24
+  color-raised-light:    panel highlight #2e363d
+  color-raised-dark:     grid depth #080a0c
+  color-accent-cool:     loop cyan #7ee8e8
+  color-accent-warm:     loop coral #ff8050
+  color-text:            cool silver #c8d4dc
+  mapped-banner-aspect:  1024 / 438
+  mapped-button-shadow:  cyan/coral dual extrude; ALL deeper neutral raise only
+*/
+
+:root {
+  color-scheme: dark;
+
+  --skin-analysis-summary: "Dark neumorphism: Passive Flow";
+
+  --neu-base: #1a1f24;
+  --neu-raised-light: #2e363d;
+  --neu-raised-dark: #080a0c;
+  --neu-inset-light: #222830;
+  --neu-inset-dark: #050608;
+
+  --accent-cyan: #7ee8e8;
+  --accent-coral: #ff8050;
+  --accent-peach: #ff9570;
+
+  --motion-shadow: 0.24s ease;
+  --motion-press: 0.14s ease;
+  --motion-reveal: 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-chrome: 0.28s ease;
+  --motion-lift: 1px;
+  --motion-glow: 24s ease-in-out infinite;
+  --motion-focus: 5s ease-in-out infinite;
+
+  --bg: var(--neu-base);
+  --panel: var(--neu-base);
+  --panel-opacity: 1;
+  --panel-blur: 0px;
+  --panel-saturate: 100%;
+  --text: #c8d4dc;
+  --muted: #7a868e;
+  --placeholder: #4a545c;
+  --accent: var(--accent-cyan);
+  --accent-hover: var(--accent-coral);
+  --button-fill: var(--neu-base);
+  --button-fill-hover: var(--neu-base);
+  --button-text: var(--text);
+  --button-opacity: 1;
+  --button-all-fill: var(--neu-base);
+  --button-all-fill-hover: var(--neu-base);
+  --button-all-text: var(--button-text);
+  --button-progress-fill: color-mix(in srgb, var(--neu-base) 80%, white 20%);
+  --button-all-progress-fill: color-mix(in srgb, var(--neu-base) 80%, white 20%);
+  --button-all-opacity: 1;
+  --border: transparent;
+  --bg-glow: transparent;
+  --panel-shadow-color: transparent;
+  --panel-inset-glow: transparent;
+  --input-focus-ring: rgba(126, 232, 232, 0.34);
+  --input-focus-shadow:
+    inset 3px 3px 7px var(--neu-inset-dark),
+    inset -3px -3px 7px var(--neu-inset-light),
+    0 0 0 2px rgba(126, 232, 232, 0.12),
+    0 0 16px rgba(255, 128, 80, 0.1);
+  --progress-start: var(--accent-cyan);
+  --progress-end: var(--accent-coral);
+  --progress-glow: none;
+  --skin-bar-bg: var(--neu-base);
+  --skin-bar-blur: 0px;
+  --skin-bar-blend-mode: normal;
+  --skin-row-blur: 0px;
+  --skin-row-opacity: 1;
+  --skin-option-bg: var(--neu-base);
+  --skin-option-active: var(--neu-base);
+  --cycle-color: #5c686e;
+  --cycle-active-color: var(--accent-coral);
+  --result-bg: var(--neu-base);
+  --result-border: transparent;
+  --error-bg: var(--neu-base);
+  --error-border: transparent;
+  --scrollbar-thumb: rgba(126, 232, 232, 0.22);
+  --transition-speed: 0.15s;
+
+  --banner-display: block;
+  --banner-size: cover;
+  --banner-position: center center;
+  --banner-aspect-ratio: 1024 / 438;
+  --banner-min-height: 160px;
+  --banner-opacity: 1;
+  --banner-saturate: 108%;
+  --banner-contrast: 104%;
+  --banner-brightness: 103%;
+  --banner-blend-mode: normal;
+
+  --main-padding: 24px;
+  --main-radius: 24px;
+  --skin-bar-margin: 16px 0 18px;
+  --skin-bar-padding: 0 0 12px;
+
+  --heading-align: center;
+  --subtitle-align: center;
+  --heading-size: 1.05rem;
+  --heading-weight: 600;
+  --heading-spacing: 0.14em;
+  --heading-transform: uppercase;
+  --heading-shadow: none;
+  --label-transform: uppercase;
+  --label-size: 0.68rem;
+  --label-spacing: 0.1em;
+  --font-family: "Avenir Next", "Segoe UI", sans-serif;
+  --subtitle-size: 1rem;
+  --subtitle-weight: 400;
+  --subtitle-line-height: 1.5;
+  --button-font-size: var(--subtitle-size);
+  --button-font-weight: var(--subtitle-weight);
+  --button-line-height: var(--subtitle-line-height);
+  --button-letter-spacing: normal;
+
+  --radius-button: 16px;
+  --radius-input: 14px;
+  --radius-form: 20px;
+  --copy-frame-height: 9.5rem;
+  --radius-skin-option: 14px;
+  --radius-skin-cycle: 14px;
+
+  --form-opacity: 1;
+  --form-blur: 0px;
+  --form-blend-mode: normal;
+  --input-opacity: 1;
+  --input-blur: 0px;
+  --input-shadow:
+    inset 4px 4px 9px var(--neu-inset-dark),
+    inset -4px -4px 9px var(--neu-inset-light);
+
+  --shadow-raise:
+    6px 6px 14px var(--neu-raised-dark),
+    -6px -6px 14px var(--neu-raised-light),
+    5px 5px 18px rgba(255, 128, 80, 0.06),
+    -5px -5px 16px rgba(126, 232, 232, 0.06);
+  --shadow-raise-hover:
+    5px 5px 12px var(--neu-raised-dark),
+    -5px -5px 12px var(--neu-raised-light),
+    5px 5px 22px rgba(255, 128, 80, 0.11),
+    -5px -5px 20px rgba(126, 232, 232, 0.1);
+  --shadow-raise-all:
+    9px 9px 20px var(--neu-raised-dark),
+    -9px -9px 20px var(--neu-raised-light),
+    7px 7px 26px rgba(255, 128, 80, 0.08),
+    -7px -7px 24px rgba(126, 232, 232, 0.07);
+  --shadow-raise-all-hover:
+    8px 8px 18px var(--neu-raised-dark),
+    -8px -8px 18px var(--neu-raised-light),
+    6px 6px 28px rgba(255, 128, 80, 0.13),
+    -6px -6px 26px rgba(126, 232, 232, 0.11);
+
+  --button-shadow: var(--shadow-raise);
+  --button-all-shadow: var(--shadow-raise-all);
+}
+
+@keyframes infinity-glow-drift {
+  0%,
+  100% {
+    background-position:
+      0% 50%,
+      100% 50%;
+  }
+  50% {
+    background-position:
+      5% 48%,
+      95% 52%;
+  }
+}
+
+@keyframes infinity-focus-pulse {
+  0%,
+  100% {
+    box-shadow:
+      inset 4px 4px 9px var(--neu-inset-dark),
+      inset -4px -4px 9px var(--neu-inset-light),
+      0 0 0 0 rgba(126, 232, 232, 0),
+      0 0 10px rgba(255, 128, 80, 0.04);
+  }
+  50% {
+    box-shadow:
+      inset 4px 4px 9px var(--neu-inset-dark),
+      inset -4px -4px 9px var(--neu-inset-light),
+      0 0 0 2px rgba(126, 232, 232, 0.14),
+      0 0 18px rgba(255, 128, 80, 0.1);
+  }
+}
+
+@keyframes infinity-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+body {
+  position: relative;
+  background-color: #0e1114;
+  background-image:
+    radial-gradient(ellipse 48% 50% at 0% 50%, rgba(126, 232, 232, 0.12), transparent 58%),
+    radial-gradient(ellipse 48% 50% at 100% 50%, rgba(255, 128, 80, 0.1), transparent 58%);
+  background-size:
+    120% 100%,
+    120% 100%;
+  background-repeat: no-repeat;
+  animation: infinity-glow-drift var(--motion-glow);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: overlay;
+}
+
+p {
+  font-size: var(--subtitle-size);
+  font-weight: var(--subtitle-weight);
+  line-height: var(--subtitle-line-height);
+}
+
+main {
+  border: 0;
+  background: var(--neu-base);
+  box-shadow:
+    10px 10px 22px var(--neu-raised-dark),
+    -10px -10px 22px var(--neu-raised-light),
+    6px 0 28px rgba(255, 128, 80, 0.04),
+    -6px 0 28px rgba(126, 232, 232, 0.04);
+  animation: infinity-fade-in var(--motion-reveal) both;
+}
+
+.scene-banner {
+  padding: 14px;
+  background-color: var(--neu-base);
+  border-radius: 22px 22px 16px 16px;
+  background-clip: content-box;
+  background-origin: content-box;
+  box-shadow:
+    inset 7px 7px 16px var(--neu-inset-dark),
+    inset -7px -7px 16px var(--neu-inset-light),
+    inset 0 0 24px rgba(126, 232, 232, 0.03);
+  filter: saturate(var(--banner-saturate)) contrast(var(--banner-contrast))
+    brightness(var(--banner-brightness));
+}
+
+.scene-banner::after {
+  display: block;
+  inset: 14px;
+  border-radius: 14px;
+  background: transparent;
+  opacity: 1;
+  mix-blend-mode: normal;
+  box-shadow:
+    inset 0 1px 0 rgba(126, 232, 232, 0.26),
+    inset 0 -1px 0 rgba(255, 128, 80, 0.2),
+    0 0 0 1px rgba(255, 255, 255, 0.06);
+  pointer-events: none;
+}
+
+.skin-bar {
+  border-bottom: 0;
+}
+
+.skin-bar-row {
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--neu-base);
+  border: 0;
+  box-shadow:
+    inset 4px 4px 9px var(--neu-inset-dark),
+    inset -4px -4px 9px var(--neu-inset-light);
+}
+
+.skin-option {
+  border: 0;
+  box-shadow:
+    4px 4px 9px var(--neu-raised-dark),
+    -4px -4px 9px var(--neu-raised-light),
+    3px 0 10px rgba(255, 128, 80, 0.04),
+    -3px 0 10px rgba(126, 232, 232, 0.04);
+  transition: box-shadow var(--motion-chrome);
+}
+
+.skin-option.active {
+  border-color: transparent;
+  box-shadow:
+    inset 3px 3px 7px var(--neu-inset-dark),
+    inset -3px -3px 7px var(--neu-inset-light),
+    0 0 0 2px rgba(126, 232, 232, 0.28);
+}
+
+.skin-fav-filter.active .skin-control-icon {
+  color: var(--accent-coral);
+}
+
+.copy-frame {
+  padding: 20px;
+  background: var(--neu-base);
+  border: 0;
+  border-radius: var(--radius-form);
+  box-shadow:
+    inset 5px 5px 11px var(--neu-inset-dark),
+    inset -5px -5px 11px var(--neu-inset-light);
+}
+
+form {
+  padding: 20px;
+  background: var(--neu-base);
+  border: 0;
+  border-radius: var(--radius-form);
+  box-shadow:
+    inset 5px 5px 11px var(--neu-inset-dark),
+    inset -5px -5px 11px var(--neu-inset-light);
+}
+
+.url-field input {
+  border: 0;
+  background: var(--neu-base);
+  color: var(--text);
+  font-family: var(--font-family);
+  font-size: var(--subtitle-size);
+  font-weight: var(--subtitle-weight);
+  line-height: var(--subtitle-line-height);
+  box-shadow: var(--input-shadow);
+  transition: box-shadow var(--motion-shadow);
+}
+
+.url-field input:focus {
+  animation: infinity-focus-pulse var(--motion-focus);
+}
+
+.url-field input::placeholder {
+  color: var(--placeholder);
+  font-family: var(--font-family);
+  font-size: var(--subtitle-size);
+  font-weight: var(--subtitle-weight);
+  line-height: var(--subtitle-line-height);
+  opacity: 1;
+}
+
+form button {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border: 0;
+  font-family: var(--font-family);
+  font-size: var(--button-font-size);
+  font-weight: var(--button-font-weight);
+  line-height: var(--button-line-height);
+  letter-spacing: var(--button-letter-spacing);
+  text-transform: none;
+  color: var(--button-text);
+  background: var(--neu-base);
+  box-shadow: var(--shadow-raise);
+  transition:
+    box-shadow var(--motion-shadow),
+    color var(--motion-shadow),
+    transform var(--motion-press);
+}
+
+form button:hover:not(:disabled) {
+  color: #dce4ea;
+  transform: translateY(calc(-1 * var(--motion-lift)));
+  box-shadow: var(--shadow-raise-hover);
+}
+
+form button:active:not(:disabled) {
+  transform: translateY(0) scale(0.985);
+  box-shadow:
+    inset 4px 4px 9px var(--neu-inset-dark),
+    inset -4px -4px 9px var(--neu-inset-light);
+}
+
+form button .btn-label {
+  position: relative;
+  z-index: 1;
+}
+
+form button .btn-progress {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0%;
+  border-radius: inherit;
+  background: var(--button-progress-fill);
+  opacity: 0;
+  transition: width 0.12s linear, opacity 0.15s ease;
+  z-index: 0;
+  pointer-events: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.14);
+}
+
+form button.is-pending .btn-progress,
+form button.is-running .btn-progress,
+form button.is-complete .btn-progress {
+  opacity: 1;
+}
+
+form button.is-complete .btn-progress {
+  opacity: 0.92;
+}
+
+form button.all {
+  color: var(--button-all-text);
+  box-shadow: var(--shadow-raise-all);
+}
+
+form button.all:hover:not(:disabled) {
+  transform: translateY(calc(-1 * var(--motion-lift)));
+  box-shadow: var(--shadow-raise-all-hover);
+}
+
+form button.all:active:not(:disabled) {
+  transform: translateY(0) scale(0.985);
+  box-shadow:
+    inset 5px 5px 11px var(--neu-inset-dark),
+    inset -5px -5px 11px var(--neu-inset-light);
+}
+
+.console-dismiss {
+  box-shadow:
+    3px 3px 7px var(--neu-raised-dark),
+    -3px -3px 7px var(--neu-raised-light);
+}
+
+.copy-region.show-activity .console {
+  animation: infinity-fade-in var(--motion-reveal) both;
+}
+
+.copy-region.show-activity .console-log {
+  font-family: var(--font-family);
+  font-size: 0.88rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  body {
+    animation: none;
+  }
+
+  form button:hover:not(:disabled),
+  form button.all:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+@media (max-width: 520px) {
+  :root {
+    --banner-min-height: 140px;
+    --radius-button: 14px;
+  }
+}

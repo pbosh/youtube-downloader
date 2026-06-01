@@ -77,8 +77,8 @@
   --button-all-fill: var(--neu-base);
   --button-all-fill-hover: var(--neu-base);
   --button-all-text: var(--button-text);
-  --button-progress-fill: color-mix(in srgb, var(--neu-base) 80%, white 20%);
-  --button-all-progress-fill: color-mix(in srgb, var(--neu-base) 80%, white 20%);
+  --button-progress-fill: color-mix(in srgb, var(--neu-base) 80%, black 20%);
+  --button-all-progress-fill: color-mix(in srgb, var(--neu-base) 80%, black 20%);
   --button-all-opacity: 1;
   --border: transparent;
   --bg-glow: transparent;

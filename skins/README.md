@@ -24,7 +24,9 @@ cp path/to/your-banner.png skins/my-skin/banner.png
 5. Set `--banner-aspect-ratio` to **width / height of `banner.png`** (e.g. `1024 / 438`). Picker tiles are square center-crops — see [Scene banner](../docs/neumorphism-design-philosophy.md#scene-banner).
 6. Refresh the app.
 
-Working examples: [`neumorphism/`](neumorphism/) (**Neumorphism**), [`neumorphism-portal/`](neumorphism-portal/) (**Portal**), [`freequency/`](freequency/) (**Freequency**), [`freequency-neon/`](freequency-neon/) (**Neon Prism**), [`freequency-cube/`](freequency-cube/) (**Holo Cube**), [`freequency-mist/`](freequency-mist/) (**Mist**).
+**Batch from art:** drop PNGs in [`assets/skin-incoming/`](../assets/skin-incoming/) (queue); finished sources go to [`assets/skin-incoming/_DONE/`](../assets/skin-incoming/_DONE/). Run `npm run mark-skins-done` then `npm run scaffold:skins` — [`docs/batch-skins.md`](../docs/batch-skins.md).
+
+Working examples: [`neumorphism/`](neumorphism/) (**Neumorphism**), [`neumorphism-portal/`](neumorphism-portal/) (**Portal**), [`freequency/`](freequency/) (**Freequency**), [`freequency-neon/`](freequency-neon/) (**Neon Prism**), [`freequency-cube/`](freequency-cube/) (**Holo Cube**), [`freequency-mist/`](freequency-mist/) (**Mist**), [`freequency-infinity/`](freequency-infinity/) (**Infinity**), [`freequency-prism/`](freequency-prism/) (**Prism**), [`freequency-play/`](freequency-play/) (**Glass Play**), [`freequency-crystal/`](freequency-crystal/) (**Crystal Stack**), [`freequency-voxel/`](freequency-voxel/) (**Voxel City**), [`freequency-unlock/`](freequency-unlock/) (**Unlock**), [`freequency-keyhole/`](freequency-keyhole/) (**Keyhole**), [`freequency-sharing/`](freequency-sharing/) (**Share Glow**), [`freequency-tunnel/`](freequency-tunnel/) (**Glass Tunnel**).
 
 ---
 
@@ -35,7 +37,7 @@ skins/
   my-skin/
     skin.json              required
     skin.css               required — @skin-analysis + :root + selectors
-    banner.png             required for In Scene — hero + picker thumbnail
+    banner.png             required for In Scene — hero + picker thumbnail (or banner.jpg)
 ```
 
 | File | Required | Role |
@@ -62,9 +64,10 @@ Folders prefixed `_` (e.g. `_template/`) are ignored by the picker.
 | Field | Required | Description |
 |-------|----------|-------------|
 | `title` | **Yes** | Name on **hover** over the picker tile |
+| `mode` | No | `light` or `dark` — deck brightness (auto on scaffold) |
 | `icon` | No | Fallback emoji/text if no banner (default: `🎨`) |
 | `iconImage` | No | Square image filename — picker only when **no** `banner.png` |
-| `banner` | No | Banner filename if not `banner.png` |
+| `banner` | No | Banner filename if not `banner.jpg` / `banner.png` |
 
 Picker thumbnail priority: **banner** (center crop) → **iconImage** → **icon**. No text under tiles.
 
@@ -95,7 +98,7 @@ Key banner tokens:
 
 ## Skin bar
 
-[`public/skins.js`](../public/skins.js) — tile hover shows `title`; ♡/♥ is heart-only (no background box); shuffle picks a random skin; ♥ filter; hold tile ~550ms to delete (confirm). Picker order is randomized on each page load.
+[`public/skins.js`](../public/skins.js) — tile hover shows `title`; **Light** / **Dark** badge on each tile; ☀ / ☾ filters (none or both = all); ♡/♥ is heart-only (no background box); shuffle picks a random skin; **← / →** step through the picker list (wraps; works on load; blocked only while editing a non-empty URL); ♥ filter; hold tile ~550ms to delete (confirm). Picker order is randomized on each page load.
 
 ---
 

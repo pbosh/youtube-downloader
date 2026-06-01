@@ -1,0 +1,16 @@
+{
+  "defaults": {
+    "prefix": "freequency",
+    "template": "auto",
+    "icon": "✦"
+  },
+  "done": [],
+  "skins": {
+    "example-art.png": {
+      "id": "freequency-example",
+      "title": "Example Art",
+      "icon": "◈",
+      "template": "dark"
+    }
+  }
+}

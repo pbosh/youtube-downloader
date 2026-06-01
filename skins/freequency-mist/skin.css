@@ -1,7 +1,7 @@
 /*
   @skin-analysis — do not remove; not used by runtime, stored for humans + future edits
 
-  source-image:        banner.png (1024×438) — grainy matte impossible geometry;
+  source-image:        banner.jpg (1024×438) — grainy matte impossible geometry;
                        interlocking angular blocks; soft teal/cyan left · peach/dusty rose
                        right; calm reflective water; atmospheric horizon haze; light from
                        the right warming surfaces
@@ -42,7 +42,7 @@
 :root {
   color-scheme: light;
 
-  --skin-analysis-summary: "Light neumorphism: mist deck, teal→peach ambient, grainy calm";
+  --skin-analysis-summary: "Light neumorphism: Energy Honest";
 
   --neu-base: #c5d2ce;
   --neu-raised-light: #e8efec;
@@ -78,8 +78,8 @@
   --button-all-fill: var(--neu-base);
   --button-all-fill-hover: var(--neu-base);
   --button-all-text: var(--button-text);
-  --button-progress-fill: color-mix(in srgb, var(--neu-base) 80%, white 20%);
-  --button-all-progress-fill: color-mix(in srgb, var(--neu-base) 80%, white 20%);
+  --button-progress-fill: color-mix(in srgb, var(--neu-base) 80%, black 20%);
+  --button-all-progress-fill: color-mix(in srgb, var(--neu-base) 80%, black 20%);
   --button-all-opacity: 1;
   --border: transparent;
   --bg-glow: transparent;

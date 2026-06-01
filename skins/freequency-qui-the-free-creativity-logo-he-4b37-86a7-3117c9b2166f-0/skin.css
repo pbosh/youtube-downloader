@@ -1,0 +1,454 @@
+/*
+  @skin-analysis — do not remove; not used by runtime, stored for humans + future edits
+
+  scaffold-source:     scripts/scaffold_skins.py
+
+  source-image:        banner.jpg (1680×720) — Long Tiny
+
+  ui-treatment:        Light neumorphism soft UI — see docs/neumorphism-design-philosophy.md
+  motion-treatment:    reference template (dark/light from image luminance)
+
+  analyzed-date:       2026-05-31
+
+  ── Opacity ──
+  opacity-ui-deck:     matte deck ~100%
+  opacity-buttons:     opaque raised pills; ALL deeper extrusion only
+
+  ── Blur / softness ──
+  blur-ui-surface:     0px — no backdrop-filter on deck (neumorphism rule)
+
+  ── Color pick (auto-scaffold → neu palette) ──
+  color-base:            deck #d1cfc7
+  color-raised-light:      lift #eae9e6
+  color-raised-dark:       depth #aba7a6
+  color-accent teal:       #00959a
+  color-accent peach:       #00979d
+  color-accent rose:       #00969d
+  color-text:              #4b4550
+  mapped-banner-aspect:    1680 / 720
+  mapped-button-shadow:    reference template dual extrude
+*/
+
+:root {
+  color-scheme: light;
+
+  --skin-analysis-summary: "Light neumorphism: Long Tiny";
+
+  --neu-base: #d1cfc7;
+  --neu-raised-light: #eae9e6;
+  --neu-raised-dark: #aba7a6;
+  --neu-inset-light: #dcdbd5;
+  --neu-inset-dark: #a39fa0;
+
+  --accent-teal: #00959a;
+  --accent-peach: #00979d;
+  --accent-rose: #00969d;
+
+  --motion-shadow: 0.22s ease;
+  --motion-press: 0.14s ease;
+  --motion-reveal: 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+  --motion-chrome: 0.25s ease;
+  --motion-lift: 1px;
+  --motion-mist: 26s ease-in-out infinite;
+
+  --bg: var(--neu-base);
+  --panel: var(--neu-base);
+  --panel-opacity: 1;
+  --panel-blur: 0px;
+  --panel-saturate: 100%;
+  --text: #4b4550;
+  --muted: #837f82;
+  --placeholder: #9e9b9a;
+  --accent: var(--accent-rose);
+  --accent-hover: #b89080;
+  --button-fill: var(--neu-base);
+  --button-fill-hover: var(--neu-base);
+  --button-text: var(--text);
+  --button-opacity: 1;
+  --button-all-fill: var(--neu-base);
+  --button-all-fill-hover: var(--neu-base);
+  --button-all-text: var(--button-text);
+  --button-progress-fill: color-mix(in srgb, var(--neu-base) 80%, black 20%);
+  --button-all-progress-fill: color-mix(in srgb, var(--neu-base) 80%, black 20%);
+  --button-all-opacity: 1;
+  --border: transparent;
+  --bg-glow: transparent;
+  --panel-shadow-color: transparent;
+  --panel-inset-glow: transparent;
+  --input-focus-ring: rgba(0, 149, 154, 0.42);
+  --input-focus-shadow:
+    inset 3px 3px 6px var(--neu-inset-dark),
+    inset -3px -3px 6px var(--neu-inset-light),
+    0 0 0 2px rgba(0, 149, 154, 0.16);
+  --progress-start: var(--accent-teal);
+  --progress-end: var(--accent-peach);
+  --progress-glow: none;
+  --skin-bar-bg: var(--neu-base);
+  --skin-bar-blur: 0px;
+  --skin-bar-blend-mode: normal;
+  --skin-row-blur: 0px;
+  --skin-row-opacity: 1;
+  --skin-option-bg: var(--neu-base);
+  --skin-option-active: var(--neu-base);
+  --cycle-color: #918d8e;
+  --cycle-active-color: var(--accent-rose);
+  --result-bg: var(--neu-base);
+  --result-border: transparent;
+  --error-bg: var(--neu-base);
+  --error-border: transparent;
+  --scrollbar-thumb: rgba(0, 149, 154, 0.35);
+  --transition-speed: 0.15s;
+
+  --banner-display: block;
+  --banner-size: cover;
+  --banner-position: center center;
+  --banner-aspect-ratio: 1680 / 720;
+  --banner-min-height: 160px;
+  --banner-opacity: 1;
+  --banner-saturate: 104%;
+  --banner-contrast: 100%;
+  --banner-brightness: 101%;
+  --banner-blend-mode: normal;
+
+  --main-padding: 24px;
+  --main-radius: 24px;
+  --skin-bar-margin: 16px 0 18px;
+  --skin-bar-padding: 0 0 12px;
+
+  --heading-align: center;
+  --subtitle-align: center;
+  --heading-size: 1.05rem;
+  --heading-weight: 600;
+  --heading-spacing: 0.12em;
+  --heading-transform: uppercase;
+  --heading-shadow: none;
+  --label-transform: uppercase;
+  --label-size: 0.68rem;
+  --label-spacing: 0.1em;
+  --font-family: "Avenir Next", "Segoe UI", sans-serif;
+  --subtitle-size: 1rem;
+  --subtitle-weight: 400;
+  --subtitle-line-height: 1.5;
+  --button-font-size: var(--subtitle-size);
+  --button-font-weight: var(--subtitle-weight);
+  --button-line-height: var(--subtitle-line-height);
+  --button-letter-spacing: normal;
+
+  --radius-button: 16px;
+  --radius-input: 14px;
+  --radius-form: 20px;
+  --copy-frame-height: 9.5rem;
+  --radius-skin-option: 14px;
+  --radius-skin-cycle: 14px;
+
+  --form-opacity: 1;
+  --form-blur: 0px;
+  --form-blend-mode: normal;
+  --input-opacity: 1;
+  --input-blur: 0px;
+  --input-shadow:
+    inset 4px 4px 8px var(--neu-inset-dark),
+    inset -4px -4px 8px var(--neu-inset-light);
+
+  --shadow-raise:
+    6px 6px 12px var(--neu-raised-dark),
+    -6px -6px 12px var(--neu-raised-light);
+  --shadow-raise-hover:
+    5px 5px 10px var(--neu-raised-dark),
+    -5px -5px 10px var(--neu-raised-light);
+  --shadow-raise-all:
+    9px 9px 18px var(--neu-raised-dark),
+    -9px -9px 18px var(--neu-raised-light);
+  --shadow-raise-all-hover:
+    8px 8px 16px var(--neu-raised-dark),
+    -8px -8px 16px var(--neu-raised-light);
+
+  --button-shadow: var(--shadow-raise);
+  --button-all-shadow: var(--shadow-raise-all);
+}
+
+@keyframes mist-drift {
+  0%,
+  100% {
+    background-position:
+      0% 50%,
+      100% 50%;
+  }
+  50% {
+    background-position:
+      4% 48%,
+      96% 52%;
+  }
+}
+
+@keyframes mist-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+body {
+  position: relative;
+  background-color: #b8c8c4;
+  background-image:
+    radial-gradient(ellipse 55% 50% at 0% 46%, rgba(0, 149, 154, 0.28), transparent 58%),
+    radial-gradient(ellipse 50% 48% at 100% 44%, rgba(0, 151, 157, 0.24), transparent 58%);
+  background-size:
+    120% 100%,
+    120% 100%;
+  background-repeat: no-repeat;
+  animation: mist-drift var(--motion-mist);
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.82' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+
+p {
+  font-size: var(--subtitle-size);
+  font-weight: var(--subtitle-weight);
+  line-height: var(--subtitle-line-height);
+}
+
+main {
+  border: 0;
+  background: var(--neu-base);
+  box-shadow:
+    10px 10px 20px var(--neu-raised-dark),
+    -10px -10px 20px var(--neu-raised-light);
+  animation: mist-fade-in var(--motion-reveal) both;
+}
+
+.scene-banner {
+  padding: 14px;
+  background-color: var(--neu-base);
+  border-radius: 22px 22px 16px 16px;
+  background-clip: content-box;
+  background-origin: content-box;
+  box-shadow:
+    inset 7px 7px 14px var(--neu-inset-dark),
+    inset -7px -7px 14px var(--neu-inset-light);
+  filter: saturate(var(--banner-saturate)) contrast(var(--banner-contrast))
+    brightness(var(--banner-brightness));
+}
+
+.scene-banner::after {
+  display: block;
+  inset: 14px;
+  border-radius: 14px;
+  background: transparent;
+  opacity: 1;
+  mix-blend-mode: normal;
+  box-shadow:
+    inset 0 1px 0 rgba(0, 149, 154, 0.28),
+    inset 0 -1px 0 rgba(0, 151, 157, 0.22),
+    0 0 0 1px rgba(143, 159, 156, 0.1);
+  pointer-events: none;
+}
+
+.skin-bar {
+  border-bottom: 0;
+}
+
+.skin-bar-row {
+  padding: 12px 14px;
+  border-radius: 18px;
+  background: var(--neu-base);
+  border: 0;
+  box-shadow:
+    inset 4px 4px 8px var(--neu-inset-dark),
+    inset -4px -4px 8px var(--neu-inset-light);
+}
+
+.skin-option {
+  border: 0;
+  box-shadow:
+    4px 4px 8px var(--neu-raised-dark),
+    -4px -4px 8px var(--neu-raised-light);
+  transition: box-shadow var(--motion-chrome);
+}
+
+.skin-option.active {
+  border-color: transparent;
+  box-shadow:
+    inset 3px 3px 6px var(--neu-inset-dark),
+    inset -3px -3px 6px var(--neu-inset-light),
+    0 0 0 2px rgba(0, 150, 157, 0.3);
+}
+
+.skin-fav-filter.active .skin-control-icon {
+  color: var(--accent-rose);
+}
+
+.copy-frame {
+  padding: 20px;
+  background: var(--neu-base);
+  border: 0;
+  border-radius: var(--radius-form);
+  box-shadow:
+    inset 5px 5px 10px var(--neu-inset-dark),
+    inset -5px -5px 10px var(--neu-inset-light);
+}
+
+form {
+  padding: 20px;
+  background: var(--neu-base);
+  border: 0;
+  border-radius: var(--radius-form);
+  box-shadow:
+    inset 5px 5px 10px var(--neu-inset-dark),
+    inset -5px -5px 10px var(--neu-inset-light);
+}
+
+.url-field input {
+  border: 0;
+  background: var(--neu-base);
+  color: var(--text);
+  font-family: var(--font-family);
+  font-size: var(--subtitle-size);
+  font-weight: var(--subtitle-weight);
+  line-height: var(--subtitle-line-height);
+  box-shadow: var(--input-shadow);
+  transition: box-shadow var(--motion-shadow);
+}
+
+.url-field input:focus {
+  box-shadow: var(--input-focus-shadow);
+}
+
+.url-field input::placeholder {
+  color: var(--placeholder);
+  font-family: var(--font-family);
+  font-size: var(--subtitle-size);
+  font-weight: var(--subtitle-weight);
+  line-height: var(--subtitle-line-height);
+  opacity: 1;
+}
+
+form button {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  border: 0;
+  font-family: var(--font-family);
+  font-size: var(--button-font-size);
+  font-weight: var(--button-font-weight);
+  line-height: var(--button-line-height);
+  letter-spacing: var(--button-letter-spacing);
+  text-transform: none;
+  color: var(--button-text);
+  background: var(--neu-base);
+  box-shadow: var(--shadow-raise);
+  transition:
+    box-shadow var(--motion-shadow),
+    color var(--motion-shadow),
+    transform var(--motion-press);
+}
+
+form button:hover:not(:disabled) {
+  color: #3d4a46;
+  transform: translateY(calc(-1 * var(--motion-lift)));
+  box-shadow: var(--shadow-raise-hover);
+}
+
+form button:active:not(:disabled) {
+  transform: translateY(0) scale(0.985);
+  box-shadow:
+    inset 4px 4px 8px var(--neu-inset-dark),
+    inset -4px -4px 8px var(--neu-inset-light);
+}
+
+form button .btn-label {
+  position: relative;
+  z-index: 1;
+}
+
+form button .btn-progress {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 0%;
+  border-radius: inherit;
+  background: var(--button-progress-fill);
+  opacity: 0;
+  transition: width 0.12s linear, opacity 0.15s ease;
+  z-index: 0;
+  pointer-events: none;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+form button.is-pending .btn-progress,
+form button.is-running .btn-progress,
+form button.is-complete .btn-progress {
+  opacity: 1;
+}
+
+form button.is-complete .btn-progress {
+  opacity: 0.92;
+}
+
+form button.all {
+  color: var(--button-all-text);
+  box-shadow: var(--shadow-raise-all);
+}
+
+form button.all:hover:not(:disabled) {
+  transform: translateY(calc(-1 * var(--motion-lift)));
+  box-shadow: var(--shadow-raise-all-hover);
+}
+
+form button.all:active:not(:disabled) {
+  transform: translateY(0) scale(0.985);
+  box-shadow:
+    inset 5px 5px 10px var(--neu-inset-dark),
+    inset -5px -5px 10px var(--neu-inset-light);
+}
+
+.console-dismiss {
+  box-shadow:
+    3px 3px 7px var(--neu-raised-dark),
+    -3px -3px 7px var(--neu-raised-light);
+}
+
+.copy-region.show-activity .console {
+  animation: mist-fade-in var(--motion-reveal) both;
+}
+
+.copy-region.show-activity .console-log {
+  font-family: var(--font-family);
+  font-size: 0.88rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  body {
+    animation: none;
+  }
+
+  form button:hover:not(:disabled),
+  form button.all:hover:not(:disabled) {
+    transform: none;
+  }
+}
+
+@media (max-width: 520px) {
+  :root {
+    --banner-min-height: 140px;
+    --radius-button: 14px;
+  }
+}
