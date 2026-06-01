@@ -95,7 +95,7 @@ Key banner tokens:
 
 ## Skin bar
 
-[`public/skins.js`](../public/skins.js) — tile hover shows `title`; ♡/♥ favorites; shuffle picks a random skin; ♥ filter; hold tile ~550ms to delete (confirm). Picker order is randomized on each page load.
+[`public/skins.js`](../public/skins.js) — tile hover shows `title`; ♡/♥ is heart-only (no background box); shuffle picks a random skin; ♥ filter; hold tile ~550ms to delete (confirm). Picker order is randomized on each page load.
 
 ---
 

@@ -291,7 +291,7 @@ Fallback when no banner—same 52×52 cell, emoji centered.
 Square image fallback when no banner file—`object-fit: cover`.
 
 **`.skin-fav-toggle` (♡ / ♥)**  
-Hidden until hover or favorited; small overlay on tile corner—minimal, not extruded.
+Hidden until hover or favorited; **heart glyph only** in the tile’s top-right corner. No background pill, no border-radius box, no shadow, no extrusion—the heart sits directly on the thumbnail. Styling lives in [`public/index.html`](../public/index.html); **skins must not** add `background`, `box-shadow`, or `border` on `.skin-fav-toggle`. Hover/favorited: accent color on the heart only.
 
 **Favorited tile (`.is-favorite`)**  
 Heart stays visible—state without changing tile shadow language.
@@ -729,6 +729,9 @@ Icons only; name in tooltip.
 **Banner URL in CSS**  
 Path set by JS only—`url()` in CSS vars resolves against page URL.
 
+**Background box behind ♡ / ♥ on picker tiles**  
+Semi-transparent rounded squares behind the favorite heart—breaks the clean overlay. Heart only; transparent hit target is fine.
+
 ---
 
 ## Workflow: new neumorphism skin
@@ -760,7 +763,46 @@ Path set by JS only—`url()` in CSS vars resolves against page URL.
 - [ ] No gradient/glow artifacts on ALL
 - [ ] `--form-blur` and `--skin-row-blur` are `0px`
 - [ ] No per-button ID overrides
+- [ ] `.skin-fav-toggle` unchanged in skin CSS—heart only, no background box
 - [ ] Refresh at desktop and ~520px width
+
+---
+
+## Quick reference for skin authors (and agents)
+
+Use this section to avoid re-discovering rules spread through the doc.
+
+### What lives where
+
+| Concern | Owner | Do not duplicate in `skin.css` |
+|--------|--------|--------------------------------|
+| DOM structure, picker layout, fav heart behavior | [`public/index.html`](../public/index.html) | `.skin-fav-toggle` background/border |
+| Catalog, shuffle, favorites, apply skin | [`public/skins.js`](../public/skins.js) | — |
+| Look: colors, shadows, banner frame, buttons | `skins/<id>/skin.css` | Progress gradients, per-button IDs |
+| Hero image | `skins/<id>/banner.png` | Banner path in CSS |
+| Display name | `skins/<id>/skin.json` | — |
+
+### Start from a reference skin
+
+Copy [`skins/freequency-mist/`](../skins/freequency-mist/) (light pastel) or [`skins/freequency/`](../skins/freequency/) (dark) or [`skins/neumorphism/`](../skins/neumorphism/). Replace `banner.png`, rewrite `@skin-analysis`, retune `--neu-*` and accents.
+
+### Non-negotiables (common regressions)
+
+1. **`--banner-aspect-ratio`** = pixel width / height of `banner.png` (e.g. `1024 / 438`).
+2. **Progress fill** = solid `--button-progress-fill` only—width shows progress, not color ramps.
+3. **MP3 / MP4 / Thumb** = identical button chrome; **ALL** = deeper shadow only.
+4. **♡ / ♥** = transparent overlay, accent color when favorited—**never** a visible box behind the heart.
+5. **No `--print` on yt-dlp** (downloader concern)—skins unrelated but listed for monorepo context.
+6. **`--form-blur` / `--skin-row-blur`** = `0px` for true neumorphism (no glass on deck).
+7. **Do not style `#mp3-btn`, `#video-btn`, `#thumb-btn`** separately.
+
+### `@skin-analysis` minimum
+
+Include: `source-image` dimensions, dominant hex picks (`color-base`, raised/inset pair, 2–3 accents), `mapped-banner-aspect`, and one line on button/progress treatment. Future edits tune CSS against this block—not the PNG every time.
+
+### Verify before shipping
+
+Refresh app → picker tile hover (heart, no box) → shuffle → favorite + filter → apply skin → download once → mobile ~520px width.
 
 ---
 
