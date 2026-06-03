@@ -285,10 +285,16 @@ function buildArgs(
   if (kind === "video") {
     return [
       ...withFfmpeg.slice(0, 3),
+      "-S",
+      "vcodec:h264,res,acodec:aac",
       "-f",
       "bv*+ba/b",
       "--merge-output-format",
       "mp4",
+      "--recode-video",
+      "mp4",
+      "--postprocessor-args",
+      "VideoConvertor+ffmpeg:-c:v libx264 -preset medium -crf 20 -pix_fmt yuv420p -c:a aac -b:a 192k -movflags +faststart -stats_period 1",
       "--add-metadata",
       "--embed-thumbnail",
       ...withFfmpeg.slice(3),

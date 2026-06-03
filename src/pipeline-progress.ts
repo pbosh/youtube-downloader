@@ -76,6 +76,50 @@ export function parseTimecodeToSeconds(value: string): number | null {
   return null;
 }
 
+const SIZE_LABEL_RE = /^([\d.]+)\s*(B|KiB|MiB|GiB|TiB)$/i;
+
+const SIZE_UNIT_BYTES: Record<string, number> = {
+  B: 1,
+  KIB: 1024,
+  MIB: 1024 ** 2,
+  GIB: 1024 ** 3,
+  TIB: 1024 ** 4,
+};
+
+function parseSizeLabelToBytes(label: string): number | null {
+  const match = label.trim().match(SIZE_LABEL_RE);
+  if (!match) return null;
+
+  const value = Number.parseFloat(match[1]!);
+  if (!Number.isFinite(value) || value < 0) return null;
+
+  const unit = match[2]!.toUpperCase();
+  const multiplier = SIZE_UNIT_BYTES[unit as keyof typeof SIZE_UNIT_BYTES];
+  if (multiplier == null) return null;
+
+  return value * multiplier;
+}
+
+export function formatDownloadByteProgress(
+  percent: number,
+  totalSizeLabel: string,
+): string | null {
+  const totalBytes = parseSizeLabelToBytes(totalSizeLabel);
+  if (totalBytes == null || totalBytes <= 0) return null;
+
+  const clamped = clamp(percent, 0, 100);
+  const downloadedBytes = (clamped / 100) * totalBytes;
+  const toMb = (bytes: number) => bytes / (1024 * 1024);
+  const downloadedMb = toMb(downloadedBytes);
+  const totalMb = toMb(totalBytes);
+
+  if (totalMb < 1) {
+    return `${downloadedMb.toFixed(1)}/${totalMb.toFixed(1)}MB`;
+  }
+
+  return `${Math.round(downloadedMb)}/${Math.round(totalMb)}MB`;
+}
+
 export function formatMediaDuration(seconds: number): string {
   const total = Math.max(0, Math.round(seconds));
   const hours = Math.floor(total / 3600);
@@ -120,6 +164,8 @@ export class PipelineProgressTracker {
   private done = false;
   private heartbeat: ReturnType<typeof setInterval> | null = null;
   private downloadEtaSeconds: number | null = null;
+  private downloadBytePercent: number | null = null;
+  private downloadTotalSizeLabel: string | null = null;
   private lastMessage = STAGE_MESSAGES.prepare;
   private lastEmitAt = 0;
   private lastEmitPercent = -1;
@@ -253,6 +299,11 @@ export class PipelineProgressTracker {
     }
     if (detail) {
       this.lastMessage = detail;
+      const byteProgress = formatDownloadByteProgress(percent, detail);
+      if (byteProgress) {
+        this.downloadBytePercent = percent;
+        this.downloadTotalSizeLabel = detail;
+      }
     }
     this.setStageFraction(Math.min(1, Math.max(0, percent / 100)));
 
@@ -314,6 +365,8 @@ export class PipelineProgressTracker {
   private finishDownloadStage() {
     this.setStageFraction(1);
     this.downloadEtaSeconds = null;
+    this.downloadBytePercent = null;
+    this.downloadTotalSizeLabel = null;
     this.advanceAfterDownload();
   }
 
@@ -435,8 +488,19 @@ export class PipelineProgressTracker {
       return `${this.lastMessage} (${elapsed}s)`;
     }
 
-    if (stage.stage === "download" && this.mediaDurationSeconds != null) {
-      return `${this.lastMessage} · ${formatMediaDuration(this.mediaDurationSeconds)} media`;
+    if (stage.stage === "download") {
+      if (
+        this.downloadBytePercent != null &&
+        this.downloadTotalSizeLabel != null
+      ) {
+        const byteProgress = formatDownloadByteProgress(
+          this.downloadBytePercent,
+          this.downloadTotalSizeLabel,
+        );
+        if (byteProgress) {
+          return byteProgress;
+        }
+      }
     }
 
     return this.lastMessage;
@@ -505,6 +569,10 @@ export function detectPipelineSignal(
 
   if (line.includes("[Merger]")) {
     return { action: "merge", detail: "Merging video and audio..." };
+  }
+
+  if (line.includes("[VideoConvertor]")) {
+    return { action: "merge", detail: "Converting to H.264..." };
   }
 
   if (line.includes("[EmbedThumbnail]")) {

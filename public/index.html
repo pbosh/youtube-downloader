@@ -1023,6 +1023,8 @@
       let finished = false;
       let activeKind = null;
       let lastProgressLogKey = "";
+      let lastDownloadLogAt = 0;
+      const DOWNLOAD_LOG_INTERVAL_MS = 5000;
       let lastProgressAt = 0;
       let stallTimer = null;
       const STALL_MS = 300_000;
@@ -1148,7 +1150,23 @@
         return `~${minutes}:${String(seconds).padStart(2, "0")} left`;
       }
 
+      function isDownloadStage(data) {
+        return data.stage === "download" || data.phase === "download";
+      }
+
       function shouldLogProgress(kind, data) {
+        if (isDownloadStage(data)) {
+          const now = Date.now();
+          if (
+            lastDownloadLogAt > 0 &&
+            now - lastDownloadLogAt < DOWNLOAD_LOG_INTERVAL_MS
+          ) {
+            return false;
+          }
+          lastDownloadLogAt = now;
+          return true;
+        }
+
         const step =
           kind === "all"
             ? data.step ||
@@ -1206,6 +1224,7 @@
         resetButtonProgress();
         activeKind = null;
         lastProgressLogKey = "";
+        lastDownloadLogAt = 0;
       }
 
       function dismissConsole() {
@@ -1313,9 +1332,9 @@
               : "";
           const detail = data.message ? ` — ${data.message}` : "";
           const eta =
-            typeof data.etaSeconds === "number"
-              ? ` · ${formatEtaLabel(data.etaSeconds)}`
-              : "";
+            isDownloadStage(data) || typeof data.etaSeconds !== "number"
+              ? ""
+              : ` · ${formatEtaLabel(data.etaSeconds)}`;
           appendLog(`${label}${stepDetail}${detail}${eta}`);
         });
 
