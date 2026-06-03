@@ -22,12 +22,14 @@ interface StageDef {
   seconds: number;
 }
 
-const PIPELINES: Record<DownloadKind, StageDef[]> = {
+const REFERENCE_DURATION_SECONDS = 600;
+
+const BASE_PIPELINES: Record<DownloadKind, StageDef[]> = {
   mp3: [
     { stage: "prepare", weight: 0.05, seconds: 4 },
     { stage: "download", weight: 0.275, seconds: 45 },
-    { stage: "extract", weight: 0.2, seconds: 22 },
-    { stage: "finalize", weight: 0.475, seconds: 38 },
+    { stage: "extract", weight: 0.2, seconds: 120 },
+    { stage: "finalize", weight: 0.475, seconds: 45 },
   ],
   video: [
     { stage: "prepare", weight: 0.05, seconds: 4 },
@@ -41,6 +43,51 @@ const PIPELINES: Record<DownloadKind, StageDef[]> = {
     { stage: "finalize", weight: 0.15, seconds: 5 },
   ],
 };
+
+function cloneStages(stages: StageDef[]): StageDef[] {
+  return stages.map((stage) => ({ ...stage }));
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.min(max, Math.max(min, value));
+}
+
+export function parseTimecodeToSeconds(value: string): number | null {
+  const parts = value
+    .trim()
+    .split(":")
+    .map((part) => Number.parseFloat(part));
+  if (parts.some((part) => Number.isNaN(part))) {
+    return null;
+  }
+
+  if (parts.length === 3) {
+    return parts[0]! * 3600 + parts[1]! * 60 + parts[2]!;
+  }
+
+  if (parts.length === 2) {
+    return parts[0]! * 60 + parts[1]!;
+  }
+
+  if (parts.length === 1) {
+    return parts[0]!;
+  }
+
+  return null;
+}
+
+export function formatMediaDuration(seconds: number): string {
+  const total = Math.max(0, Math.round(seconds));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const secs = total % 60;
+
+  if (hours > 0) {
+    return `${hours}:${String(minutes).padStart(2, "0")}:${String(secs).padStart(2, "0")}`;
+  }
+
+  return `${minutes}:${String(secs).padStart(2, "0")}`;
+}
 
 const STAGE_MESSAGES: Record<PipelineStage, string> = {
   prepare: "Preparing...",
@@ -63,7 +110,9 @@ function phaseForStage(stage: PipelineStage): DownloadPhase {
 
 export class PipelineProgressTracker {
   private readonly kind: DownloadKind;
+  private readonly baseStages: StageDef[];
   private readonly stages: StageDef[];
+  private mediaDurationSeconds: number | null = null;
   private stageStartedAt = Date.now();
   private stageIndex = 0;
   private stageFraction = 0;
@@ -81,7 +130,79 @@ export class PipelineProgressTracker {
 
   constructor(kind: DownloadKind) {
     this.kind = kind;
-    this.stages = PIPELINES[kind];
+    this.baseStages = BASE_PIPELINES[kind];
+    this.stages = cloneStages(this.baseStages);
+  }
+
+  setMediaDuration(seconds: number) {
+    if (!Number.isFinite(seconds) || seconds <= 0) {
+      return;
+    }
+
+    if (this.mediaDurationSeconds === seconds) {
+      return;
+    }
+
+    this.mediaDurationSeconds = seconds;
+    this.applyDurationScaling();
+    this.emit(true);
+  }
+
+  noteFfmpegProgress(timecode: string, stage: "extract" | "merge") {
+    this.enterStage(stage);
+
+    const elapsed = parseTimecodeToSeconds(timecode);
+    const total = this.mediaDurationSeconds;
+    const label =
+      stage === "extract" ? "Converting to MP3" : "Merging video and audio";
+
+    if (elapsed != null && total != null && total > 0) {
+      const fraction = clamp(elapsed / total, 0, 0.99);
+      this.setStageFraction(fraction);
+      this.lastMessage = `${label}... ${formatMediaDuration(elapsed)} / ${formatMediaDuration(total)}`;
+    } else {
+      this.lastMessage = `${label}... ${timecode}`;
+      this.setStageFraction(Math.max(this.stageFraction, 0.05));
+    }
+
+    this.emit(true);
+  }
+
+  private applyDurationScaling() {
+    if (this.mediaDurationSeconds == null) {
+      return;
+    }
+
+    const factor = clamp(
+      this.mediaDurationSeconds / REFERENCE_DURATION_SECONDS,
+      0.15,
+      6,
+    );
+
+    for (const stage of this.stages) {
+      const base = this.baseStages.find((entry) => entry.stage === stage.stage);
+      if (!base) continue;
+
+      if (stage.stage === "prepare") {
+        stage.seconds = base.seconds;
+        continue;
+      }
+
+      if (stage.stage === "finalize") {
+        stage.seconds = Math.max(
+          base.seconds,
+          Math.round(base.seconds * (0.75 + factor * 0.25)),
+        );
+        continue;
+      }
+
+      if (this.kind === "thumb" && stage.stage === "download") {
+        stage.seconds = base.seconds;
+        continue;
+      }
+
+      stage.seconds = Math.max(3, Math.round(base.seconds * factor));
+    }
   }
 
   start(onProgress: (payload: PipelineProgressPayload) => void) {
@@ -292,6 +413,35 @@ export class PipelineProgressTracker {
     return Math.max(1, Math.round(currentRemaining + future));
   }
 
+  private displayMessage(stage: StageDef): string {
+    const elapsed = Math.round((Date.now() - this.stageStartedAt) / 1000);
+
+    if (stage.stage === "extract" || stage.stage === "merge") {
+      if (this.lastMessage.includes("/")) {
+        return this.lastMessage;
+      }
+      if (/\d+:\d+/.test(this.lastMessage)) {
+        return this.lastMessage;
+      }
+      const label =
+        stage.stage === "extract" ? "Converting to MP3" : "Merging video and audio";
+      if (this.mediaDurationSeconds != null) {
+        return `${label}... (${elapsed}s of ~${formatMediaDuration(this.mediaDurationSeconds)})`;
+      }
+      return `${label}... (${elapsed}s)`;
+    }
+
+    if (stage.stage === "finalize") {
+      return `${this.lastMessage} (${elapsed}s)`;
+    }
+
+    if (stage.stage === "download" && this.mediaDurationSeconds != null) {
+      return `${this.lastMessage} · ${formatMediaDuration(this.mediaDurationSeconds)} media`;
+    }
+
+    return this.lastMessage;
+  }
+
   private emit(force = false) {
     if (!this.onProgress) return;
 
@@ -301,12 +451,17 @@ export class PipelineProgressTracker {
     const now = Date.now();
     const percentDelta = this.userPercent - this.lastEmitPercent;
     const stageChanged = this.stageIndex !== this.lastEmitStage;
+    const slowStage =
+      stage.stage === "extract" ||
+      stage.stage === "merge" ||
+      stage.stage === "finalize";
 
     if (
       !force &&
       !stageChanged &&
       now - this.lastEmitAt < 300 &&
-      percentDelta < 0.5
+      percentDelta < 0.5 &&
+      !(slowStage && now - this.lastEmitAt >= 5000)
     ) {
       return;
     }
@@ -320,7 +475,7 @@ export class PipelineProgressTracker {
       stage: stage.stage,
       userPercent: this.userPercent,
       etaSeconds: this.estimateRemainingSeconds(),
-      message: this.lastMessage,
+      message: this.displayMessage(stage),
     });
   }
 }

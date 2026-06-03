@@ -23,6 +23,62 @@ const SkinSystem = (() => {
 
   let activeSkinStylesheet = document.getElementById("skin-stylesheet");
 
+  const CHROME_OVERRIDE_CSS = `
+form button.url-clear {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  box-shadow: none;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  overflow: visible;
+  transform: translateY(-50%);
+  transition: background 0.15s ease, color 0.15s ease;
+}
+
+form button.url-clear:hover:not(:disabled),
+form button.url-clear:active:not(:disabled) {
+  transform: translateY(-50%);
+  box-shadow: none;
+  background: rgba(127, 127, 127, 0.18);
+  color: var(--text);
+}
+
+.console-dismiss,
+.console-dismiss:hover,
+.console-dismiss:active {
+  box-shadow: none;
+  transform: none;
+}
+
+.copy-region.show-activity .console-log,
+.console-log {
+  font-size: 0.62rem;
+  line-height: 1.45;
+}
+`;
+
+  function ensureChromeOverrides() {
+    let styleEl = document.getElementById("chrome-overrides");
+    if (!styleEl) {
+      styleEl = document.createElement("style");
+      styleEl.id = "chrome-overrides";
+      styleEl.textContent = CHROME_OVERRIDE_CSS;
+      document.head.appendChild(styleEl);
+    }
+
+    if (activeSkinStylesheet?.parentNode) {
+      activeSkinStylesheet.insertAdjacentElement("afterend", styleEl);
+    }
+  }
+
   let shuffleButton = null;
   let favFilterButton = null;
   let modeSwitch = null;
@@ -380,6 +436,7 @@ const SkinSystem = (() => {
         return;
       }
       cssReady = true;
+      ensureChromeOverrides();
       render();
       markSkinReady();
       requestDesktopResize();

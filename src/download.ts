@@ -1,4 +1,4 @@
-import { spawn } from "node:child_process";
+import { spawn, type ChildProcess } from "node:child_process";
 import { access } from "node:fs/promises";
 import path from "node:path";
 import { resolveFfmpegLocation, resolveYtDlp } from "./binaries.js";
@@ -6,6 +6,10 @@ import {
   detectPipelineSignal,
   PipelineProgressTracker,
 } from "./pipeline-progress.js";
+import {
+  clearActiveDownloadPid,
+  registerActiveDownloadPid,
+} from "./startup.js";
 
 export type DownloadKind = "mp3" | "video" | "thumb";
 export type DownloadPhase =
@@ -29,6 +33,7 @@ export interface DownloadOptions {
   outputDir: string;
   kind: DownloadKind;
   onProgress?: (progress: DownloadProgress) => void;
+  signal?: AbortSignal;
 }
 
 export interface DownloadResult {
@@ -98,8 +103,141 @@ function downloadMessage(sizeLabel: string): string {
   return sizeLabel;
 }
 
+const durationCache = new Map<string, number>();
+
 async function findYtDlp(): Promise<string> {
   return resolveYtDlp();
+}
+
+async function fetchMediaDuration(url: string): Promise<number | undefined> {
+  const cached = durationCache.get(url);
+  if (cached != null) {
+    return cached;
+  }
+
+  let ytDlp: string;
+  try {
+    ytDlp = await findYtDlp();
+  } catch {
+    return undefined;
+  }
+
+  return new Promise((resolve) => {
+    const proc = spawn(
+      ytDlp,
+      [url, "--no-playlist", "--no-warnings", "--no-progress", "--print", "duration"],
+      { stdio: ["ignore", "pipe", "ignore"] },
+    );
+
+    let output = "";
+    let settled = false;
+
+    const finish = (value: number | undefined) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      resolve(value);
+    };
+
+    const timer = setTimeout(() => {
+      killProcessTree(proc);
+      finish(undefined);
+    }, 30_000);
+
+    proc.stdout.on("data", (chunk: Buffer) => {
+      output += chunk.toString();
+    });
+
+    proc.on("error", () => finish(undefined));
+    proc.on("close", () => {
+      const seconds = Number.parseFloat(output.trim());
+      const resolved =
+        Number.isFinite(seconds) && seconds > 0 ? seconds : undefined;
+      if (resolved != null) {
+        durationCache.set(url, resolved);
+      }
+      finish(resolved);
+    });
+  });
+}
+
+function killProcessTree(proc: ChildProcess) {
+  if (proc.killed || proc.exitCode != null) {
+    return;
+  }
+
+  if (process.platform !== "win32" && proc.pid != null) {
+    try {
+      process.kill(-proc.pid, "SIGTERM");
+      return;
+    } catch {
+      // Fall back to killing the direct child only.
+    }
+  }
+
+  proc.kill("SIGTERM");
+}
+
+function waitForProcessExit(
+  proc: ChildProcess,
+  signal?: AbortSignal,
+  getExitError?: () => Error | null,
+): Promise<void> {
+  return new Promise((resolve, reject) => {
+    let settled = false;
+
+    const finish = (error?: Error) => {
+      if (settled) return;
+      settled = true;
+      cleanup();
+      if (error) reject(error);
+      else resolve();
+    };
+
+    const onAbort = () => {
+      killProcessTree(proc);
+      finish(new Error("Download cancelled."));
+    };
+
+    const cleanup = () => {
+      signal?.removeEventListener("abort", onAbort);
+      proc.off("error", onProcessError);
+      proc.off("close", onClose);
+    };
+
+    const onProcessError = (error: Error) => {
+      finish(error);
+    };
+
+    const onClose = (code: number | null) => {
+      if (signal?.aborted) {
+        finish(new Error("Download cancelled."));
+        return;
+      }
+
+      const customError = getExitError?.();
+      if (customError) {
+        finish(customError);
+        return;
+      }
+
+      if (code === 0) {
+        finish();
+        return;
+      }
+
+      finish(new Error(`yt-dlp exited with code ${code ?? "unknown"}`));
+    };
+
+    if (signal?.aborted) {
+      onAbort();
+      return;
+    }
+
+    signal?.addEventListener("abort", onAbort, { once: true });
+    proc.on("error", onProcessError);
+    proc.on("close", onClose);
+  });
 }
 
 function buildArgs(
@@ -138,6 +276,8 @@ function buildArgs(
       "320K",
       "--embed-thumbnail",
       "--add-metadata",
+      "--postprocessor-args",
+      "ffmpeg:-stats_period 1",
       ...withFfmpeg.slice(3),
     ];
   }
@@ -177,8 +317,16 @@ export async function downloadMedia(
   let sawByteProgress = false;
   let outputPath = "";
   const tracker = new PipelineProgressTracker(options.kind);
+  const idleRef: { bump: () => void } = { bump: () => {} };
+
+  void fetchMediaDuration(options.url).then((seconds) => {
+    if (seconds != null) {
+      tracker.setMediaDuration(seconds);
+    }
+  });
 
   tracker.start((payload) => {
+    idleRef.bump();
     options.onProgress?.({
       phase: payload.phase,
       stage: payload.stage,
@@ -188,13 +336,50 @@ export async function downloadMedia(
     });
   });
 
+  try {
   await new Promise<void>((resolve, reject) => {
     const proc = spawn(ytDlp, args, {
       stdio: ["ignore", "pipe", "pipe"],
       env: { ...process.env, PYTHONUNBUFFERED: "1" },
+      detached: process.platform !== "win32",
     });
 
+    if (proc.pid != null) {
+      void registerActiveDownloadPid(proc.pid);
+    }
+
+    const idleTimeoutMs = 600_000;
+    let idleTimer: ReturnType<typeof setTimeout> | null = null;
+    let stalled = false;
+
+    const clearIdleTimer = () => {
+      if (idleTimer) {
+        clearTimeout(idleTimer);
+        idleTimer = null;
+      }
+    };
+
+    const resetIdleTimer = () => {
+      clearIdleTimer();
+      idleTimer = setTimeout(() => {
+        stalled = true;
+        killProcessTree(proc);
+      }, idleTimeoutMs);
+    };
+
+    idleRef.bump = resetIdleTimer;
+    resetIdleTimer();
+
     const handleLine = (line: string) => {
+      resetIdleTimer();
+
+      const ffmpegTime = line.match(/time=(\d+:\d+:\d+(?:\.\d+)?|\d+:\d+(?:\.\d+)?)/);
+      if (ffmpegTime && options.kind === "mp3") {
+        tracker.noteFfmpegProgress(ffmpegTime[1]!, "extract");
+      } else if (ffmpegTime && options.kind === "video") {
+        tracker.noteFfmpegProgress(ffmpegTime[1]!, "merge");
+      }
+
       const signal = detectPipelineSignal(options.kind, line);
       if (signal?.action === "prepare") tracker.notePrepare();
       if (signal?.action === "artwork") tracker.noteArtworkFetch(signal.detail);
@@ -284,14 +469,23 @@ export async function downloadMedia(
       stderrStream.push(chunk.toString());
     });
 
-    proc.on("error", reject);
-    proc.on("close", (code) => {
-      stdoutStream.flush();
-      stderrStream.flush();
-
-      if (code === 0) resolve();
-      else reject(new Error(`yt-dlp exited with code ${code}`));
-    });
+    waitForProcessExit(proc, options.signal, () =>
+      stalled
+        ? new Error(
+            "Download stalled with no output from yt-dlp for 10 minutes.",
+          )
+        : null,
+    )
+      .then(() => {
+        clearIdleTimer();
+        stdoutStream.flush();
+        stderrStream.flush();
+        resolve();
+      })
+      .catch((error) => {
+        clearIdleTimer();
+        reject(error);
+      });
   });
 
   if (!outputPath && options.kind === "thumb") {
@@ -313,7 +507,6 @@ export async function downloadMedia(
       message: outputPath,
     });
   });
-  tracker.stop();
 
   const title = path.basename(outputPath, path.extname(outputPath));
 
@@ -321,6 +514,10 @@ export async function downloadMedia(
     outputPath,
     title,
   };
+  } finally {
+    tracker.stop();
+    await clearActiveDownloadPid();
+  }
 }
 
 export async function downloadMp3(

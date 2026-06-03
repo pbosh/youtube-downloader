@@ -139,6 +139,7 @@ async function startBackend() {
     return;
   }
 
+  process.env.YT_DOWNLOADER_STATE_DIR = app.getPath("userData");
   configureToolPaths();
   ensureUserSkinsDir();
 

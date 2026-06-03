@@ -11,6 +11,7 @@ import {
 } from "./download.js";
 import { getDesktopPath } from "./paths.js";
 import { deleteSkin, listSkins } from "./skins.js";
+import { runStartupChecks } from "./startup.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const publicDir = path.resolve(__dirname, "..", "public");
@@ -21,6 +22,36 @@ const defaultPort = Number(process.env.PORT) || 47823;
 const defaultHost = process.env.HOST ?? "127.0.0.1";
 
 let downloadInProgress = false;
+
+interface ActiveDownload {
+  abortController: AbortController;
+  response: express.Response;
+}
+
+let activeDownload: ActiveDownload | null = null;
+
+function cancelActiveDownload(reason = "Download cancelled.") {
+  const current = activeDownload;
+  if (!current) {
+    downloadInProgress = false;
+    return;
+  }
+
+  activeDownload = null;
+  downloadInProgress = false;
+  current.abortController.abort();
+
+  if (current.response.writableEnded) {
+    return;
+  }
+
+  try {
+    sendSse(current.response, "failed", { message: reason });
+    current.response.end();
+  } catch {
+    // Client already disconnected.
+  }
+}
 
 function beginSse(res: express.Response) {
   res.setHeader("Content-Type", "text/event-stream; charset=utf-8");
@@ -122,20 +153,34 @@ app.get("/api/download", async (req, res) => {
   }
 
   if (downloadInProgress) {
-    beginSse(res);
-    sendSse(res, "failed", {
-      message: "A download is already in progress.",
-    });
-    res.end();
-    return;
+    cancelActiveDownload("Starting a new download.");
   }
 
+  const abortController = new AbortController();
   downloadInProgress = true;
+  activeDownload = { abortController, response: res };
 
   req.socket.setNoDelay(true);
   req.socket.setTimeout(0);
 
+  req.on("close", () => {
+    if (res.writableEnded) return;
+    if (activeDownload?.response === res) {
+      cancelActiveDownload("Download cancelled.");
+    }
+  });
+
   beginSse(res);
+
+  const keepalive = setInterval(() => {
+    if (res.writableEnded) {
+      clearInterval(keepalive);
+      return;
+    }
+
+    res.write(": keepalive\n\n");
+    flushSse(res);
+  }, 15_000);
 
   sendSse(res, "progress", {
     phase: "download",
@@ -152,10 +197,15 @@ app.get("/api/download", async (req, res) => {
       for (let i = 0; i < ALL_DOWNLOAD_KINDS.length; i++) {
         const stepKind = ALL_DOWNLOAD_KINDS[i]!;
 
+        if (abortController.signal.aborted) {
+          throw new Error("Download cancelled.");
+        }
+
         const result = await downloadMedia({
           url,
           outputDir,
           kind: stepKind,
+          signal: abortController.signal,
           onProgress: (progress) => {
             const userPercent = readUserPercent(progress);
             const overallUserPercent = resolveOverallUserPercent(
@@ -191,6 +241,7 @@ app.get("/api/download", async (req, res) => {
         url,
         outputDir,
         kind,
+        signal: abortController.signal,
         onProgress: (progress) => {
           sendSse(res, "progress", {
             ...progress,
@@ -208,12 +259,20 @@ app.get("/api/download", async (req, res) => {
       });
     }
   } catch (error) {
-    sendSse(res, "failed", {
-      message: error instanceof Error ? error.message : "Download failed.",
-    });
+    if (activeDownload?.response === res) {
+      sendSse(res, "failed", {
+        message: error instanceof Error ? error.message : "Download failed.",
+      });
+    }
   } finally {
-    downloadInProgress = false;
-    res.end();
+    clearInterval(keepalive);
+    if (activeDownload?.response === res) {
+      activeDownload = null;
+      downloadInProgress = false;
+    }
+    if (!res.writableEnded) {
+      res.end();
+    }
   }
 });
 
@@ -227,17 +286,19 @@ export function startServer(
   port = defaultPort,
   host = defaultHost,
 ): Promise<ServerInfo> {
-  return new Promise((resolve) => {
-    app.listen(port, host, () => {
-      const browseHost =
-        host === "127.0.0.1" || host === "::1" ? "localhost" : host;
-      const url = `http://${browseHost}:${port}`;
-      console.log(`YouTube downloader running at ${url}`);
-      console.log(`Bound to ${host}:${port} (not reachable from other machines)`);
-      console.log(`Saving files to: ${getDesktopPath()}`);
-      resolve({ port, host, url });
-    });
-  });
+  return runStartupChecks().then(() =>
+    new Promise((resolve) => {
+      app.listen(port, host, () => {
+        const browseHost =
+          host === "127.0.0.1" || host === "::1" ? "localhost" : host;
+        const url = `http://${browseHost}:${port}`;
+        console.log(`YouTube downloader running at ${url}`);
+        console.log(`Bound to ${host}:${port} (not reachable from other machines)`);
+        console.log(`Saving files to: ${getDesktopPath()}`);
+        resolve({ port, host, url });
+      });
+    }),
+  );
 }
 
 const isDirectRun =
@@ -245,5 +306,8 @@ const isDirectRun =
   import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href;
 
 if (isDirectRun) {
-  startServer();
+  startServer().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+  });
 }

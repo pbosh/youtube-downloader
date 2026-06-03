@@ -642,15 +642,20 @@
         border: 0;
         border-radius: 999px;
         background: transparent;
+        box-shadow: none;
         color: var(--muted);
         font-size: 1.25rem;
         line-height: 1;
         cursor: pointer;
+        transform: none;
       }
 
-      .console-dismiss:hover {
+      .console-dismiss:hover,
+      .console-dismiss:active {
         background: rgba(127, 127, 127, 0.18);
         color: var(--text);
+        box-shadow: none;
+        transform: none;
       }
 
       .console-log {
@@ -660,8 +665,8 @@
         scrollbar-width: none;
         -ms-overflow-style: none;
         font-family: ui-monospace, "SF Mono", "Cascadia Code", monospace;
-        font-size: 0.82rem;
-        line-height: 1.55;
+        font-size: 0.58rem;
+        line-height: 1.45;
         color: var(--muted);
         white-space: pre-wrap;
         word-break: break-word;
@@ -726,19 +731,25 @@
         width: 28px;
         height: 28px;
         padding: 0;
+        border: 0;
         border-radius: 999px;
         background: transparent;
+        box-shadow: none;
         color: var(--muted);
         font-size: 1.1rem;
         line-height: 1;
         display: none;
+        overflow: visible;
       }
 
       .url-clear.visible {
         display: block;
       }
 
-      .url-clear:hover:not(:disabled) {
+      .url-clear:hover:not(:disabled),
+      .url-clear:active:not(:disabled) {
+        transform: translateY(-50%);
+        box-shadow: none;
         background: rgba(127, 127, 127, 0.18);
         color: var(--text);
       }
@@ -1012,6 +1023,42 @@
       let finished = false;
       let activeKind = null;
       let lastProgressLogKey = "";
+      let lastProgressAt = 0;
+      let stallTimer = null;
+      const STALL_MS = 300_000;
+
+      function clearStallWatch() {
+        if (stallTimer) {
+          clearInterval(stallTimer);
+          stallTimer = null;
+        }
+      }
+
+      function markProgressActivity() {
+        lastProgressAt = Date.now();
+      }
+
+      function startStallWatch(source) {
+        clearStallWatch();
+        markProgressActivity();
+        stallTimer = setInterval(() => {
+          if (finished || source.readyState === EventSource.CLOSED) {
+            clearStallWatch();
+            return;
+          }
+
+          if (Date.now() - lastProgressAt > STALL_MS) {
+            finished = true;
+            source.close();
+            activeSource = null;
+            clearStallWatch();
+            showError(
+              "Download stalled with no updates for 5 minutes. Try again.",
+            );
+            setButtonsDisabled(false);
+          }
+        }, 5000);
+      }
 
       const progressEngine = new DownloadProgressEngine((snapshot) => {
         renderButtonProgress(snapshot);
@@ -1108,7 +1155,11 @@
               STEP_KINDS[Math.max(0, (data.stepIndex || 1) - 1)] ||
               "mp3"
             : kind;
-        const key = `${step}:${data.stage ?? ""}:${data.phase}:${data.message ?? ""}`;
+        const etaBucket =
+          typeof data.etaSeconds === "number"
+            ? Math.floor(data.etaSeconds / 5)
+            : "";
+        const key = `${step}:${data.stage ?? ""}:${data.phase}:${data.message ?? ""}:${etaBucket}`;
         if (key === lastProgressLogKey) return false;
         lastProgressLogKey = key;
         return true;
@@ -1162,6 +1213,7 @@
           finished = true;
           activeSource.close();
           activeSource = null;
+          clearStallWatch();
           setButtonsDisabled(false);
         }
         showDescriptionPanel();
@@ -1226,6 +1278,7 @@
           activeSource.close();
           activeSource = null;
         }
+        clearStallWatch();
 
         resetUi();
         activeKind = kind;
@@ -1243,8 +1296,10 @@
           `/api/download?url=${encodeURIComponent(url)}&kind=${encodeURIComponent(kind)}`,
         );
         activeSource = source;
+        startStallWatch(source);
 
         source.addEventListener("progress", (event) => {
+          markProgressActivity();
           const data = JSON.parse(event.data);
           updateDownloadProgress(kind, data);
 
@@ -1266,6 +1321,7 @@
 
         source.addEventListener("complete", (event) => {
           finished = true;
+          clearStallWatch();
           const data = JSON.parse(event.data);
           finalizeButtonProgress(kind);
           logSavedFiles(data);
@@ -1276,6 +1332,7 @@
 
         source.addEventListener("failed", (event) => {
           finished = true;
+          clearStallWatch();
           const data = JSON.parse(event.data);
           showError(data.message || "Download failed.");
           source.close();
@@ -1285,6 +1342,8 @@
 
         source.onerror = () => {
           if (finished || source.readyState === EventSource.CLOSED) return;
+          finished = true;
+          clearStallWatch();
           showError("Connection lost. Please try again.");
           source.close();
           activeSource = null;

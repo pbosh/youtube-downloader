@@ -58,6 +58,19 @@ userPercent = sum(completed stage weights) + (current stage weight × stageFract
 
 A 200ms heartbeat **creeps** the current stage forward using expected duration when no finer signal exists (e.g. during ffmpeg convert). Download stage creep is disabled while yt-dlp reports a real ETA.
 
+## Duration-aware scaling
+
+A one-minute clip and a one-hour lecture should not share the same stage timing. Before yt-dlp starts, `download.ts` runs a quick `yt-dlp --print duration` probe (30s timeout, cached per URL for Download ALL). The tracker’s `setMediaDuration()` scales each stage’s expected `seconds` against a **10-minute reference** (`REFERENCE_DURATION_SECONDS = 600`):
+
+- Factor = `clamp(duration / 600, 0.15, 6)` — short clips don’t collapse to zero; very long media caps at 6×.
+- **prepare** and thumb **download** keep fixed baselines.
+- **finalize** scales lightly (metadata/embed work grows slowly with length).
+- **download**, **extract**, and **merge** scale fully with factor.
+
+During ffmpeg convert/merge, stderr `time=HH:MM:SS` lines drive `noteFfmpegProgress()`: stage fraction = elapsed / media duration, and the message shows `MM:SS / HH:MM:SS` when duration is known. Without duration, creep and elapsed-only messages still apply.
+
+Download messages append `· M:SS media` when duration is known so the console reflects clip length at a glance.
+
 ## Signals from yt-dlp
 
 `detectPipelineSignal()` in `pipeline-progress.ts` maps log lines to stage transitions:

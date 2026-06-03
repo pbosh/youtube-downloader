@@ -344,7 +344,7 @@ form {
   opacity: 1;
 }
 
-form button {
+form button:not(.url-clear) {
   position: relative;
   overflow: hidden;
   isolation: isolate;
@@ -364,13 +364,13 @@ form button {
     transform var(--motion-press);
 }
 
-form button:hover:not(:disabled) {
+form button:hover:not(:disabled):not(.url-clear) {
   color: #3d4a46;
   transform: translateY(calc(-1 * var(--motion-lift)));
   box-shadow: var(--shadow-raise-hover);
 }
 
-form button:active:not(:disabled) {
+form button:active:not(:disabled):not(.url-clear) {
   transform: translateY(0) scale(0.985);
   box-shadow:
     inset 4px 4px 8px var(--neu-inset-dark),
@@ -423,9 +423,7 @@ form button.all:active:not(:disabled) {
 }
 
 .console-dismiss {
-  box-shadow:
-    3px 3px 7px var(--neu-raised-dark),
-    -3px -3px 7px var(--neu-raised-light);
+  box-shadow: none;
 }
 
 .copy-region.show-activity .console {
@@ -434,7 +432,7 @@ form button.all:active:not(:disabled) {
 
 .copy-region.show-activity .console-log {
   font-family: var(--font-family);
-  font-size: 0.88rem;
+  font-size: 0.62rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
