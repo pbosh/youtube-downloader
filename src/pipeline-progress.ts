@@ -14,6 +14,8 @@ export interface PipelineProgressPayload {
   etaSeconds?: number;
   message?: string;
   percent?: number;
+  downloadPercent?: number;
+  downloadSizeLabel?: string;
 }
 
 interface StageDef {
@@ -76,7 +78,8 @@ export function parseTimecodeToSeconds(value: string): number | null {
   return null;
 }
 
-const SIZE_LABEL_RE = /^([\d.]+)\s*(B|KiB|MiB|GiB|TiB)$/i;
+const SIZE_LABEL_RE =
+  /^([\d.]+)\s*(B|KiB|MiB|GiB|TiB|KB|MB|GB|TB)$/i;
 
 const SIZE_UNIT_BYTES: Record<string, number> = {
   B: 1,
@@ -84,7 +87,27 @@ const SIZE_UNIT_BYTES: Record<string, number> = {
   MIB: 1024 ** 2,
   GIB: 1024 ** 3,
   TIB: 1024 ** 4,
+  KB: 1000,
+  MB: 1000 ** 2,
+  GB: 1000 ** 3,
+  TB: 1000 ** 4,
 };
+
+function extractSizeLabel(value: string): string | null {
+  const trimmed = value.trim();
+  const embedded = trimmed.match(
+    /^([\d.]+\s*(?:KiB|MiB|GiB|TiB|KB|MB|GB|TB|B))(?:\s|$|·)/i,
+  );
+  if (embedded) {
+    return embedded[1]!.replace(/\s+/g, "");
+  }
+
+  if (parseSizeLabelToBytes(trimmed) != null) {
+    return trimmed.replace(/\s+/g, "");
+  }
+
+  return null;
+}
 
 function parseSizeLabelToBytes(label: string): number | null {
   const match = label.trim().match(SIZE_LABEL_RE);
@@ -298,12 +321,25 @@ export class PipelineProgressTracker {
       this.downloadEtaSeconds = etaSeconds;
     }
     if (detail) {
-      this.lastMessage = detail;
-      const byteProgress = formatDownloadByteProgress(percent, detail);
-      if (byteProgress) {
-        this.downloadBytePercent = percent;
-        this.downloadTotalSizeLabel = detail;
+      const sizeLabel = extractSizeLabel(detail);
+      if (sizeLabel) {
+        this.downloadTotalSizeLabel = sizeLabel;
       }
+    }
+
+    if (this.downloadTotalSizeLabel != null) {
+      this.downloadBytePercent = percent;
+      const byteProgress = formatDownloadByteProgress(
+        percent,
+        this.downloadTotalSizeLabel,
+      );
+      if (byteProgress) {
+        this.lastMessage = byteProgress;
+      } else if (detail) {
+        this.lastMessage = detail;
+      }
+    } else if (detail) {
+      this.lastMessage = detail;
     }
     this.setStageFraction(Math.min(1, Math.max(0, percent / 100)));
 
@@ -540,6 +576,14 @@ export class PipelineProgressTracker {
       userPercent: this.userPercent,
       etaSeconds: this.estimateRemainingSeconds(),
       message: this.displayMessage(stage),
+      downloadPercent:
+        stage.stage === "download" && this.downloadBytePercent != null
+          ? this.downloadBytePercent
+          : undefined,
+      downloadSizeLabel:
+        stage.stage === "download" && this.downloadTotalSizeLabel != null
+          ? this.downloadTotalSizeLabel
+          : undefined,
     });
   }
 }

@@ -118,3 +118,21 @@ export async function resolveFfmpegLocation(): Promise<string | undefined> {
 
   return path.dirname(statPath);
 }
+
+export async function resolveFfmpegBinary(): Promise<string> {
+  const fromEnv = process.env.FFMPEG_PATH?.trim();
+  const candidates = [
+    ...(fromEnv ? [path.resolve(fromEnv)] : []),
+    ...bundledNames("ffmpeg", FFMPEG_NAMES),
+    ...FFMPEG_NAMES,
+  ];
+
+  const resolved = await firstExecutable(candidates);
+  if (resolved) {
+    return resolved;
+  }
+
+  throw new Error(
+    "ffmpeg not found. Install it with: brew install ffmpeg",
+  );
+}

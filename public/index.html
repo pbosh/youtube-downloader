@@ -621,7 +621,7 @@
         position: relative;
         box-sizing: border-box;
         height: 100%;
-        padding-right: 36px;
+        padding: 36px 36px 0 0;
       }
 
       .copy-region.show-activity .console {
@@ -648,6 +648,31 @@
         line-height: 1;
         cursor: pointer;
         transform: none;
+      }
+
+      .console-stop {
+        position: absolute;
+        top: 0;
+        left: 0;
+        padding: 6px 12px;
+        border: 0;
+        border-radius: 999px;
+        background: color-mix(in srgb, #dc2626 82%, black 18%);
+        box-shadow: none;
+        color: #fff;
+        font-size: 0.8125rem;
+        font-weight: 600;
+        line-height: 1.2;
+        cursor: pointer;
+      }
+
+      .console-stop:hover:not(:disabled) {
+        background: color-mix(in srgb, #ef4444 78%, white 22%);
+      }
+
+      .console-stop:disabled {
+        opacity: 0.35;
+        cursor: not-allowed;
       }
 
       .console-dismiss:hover,
@@ -805,6 +830,93 @@
         opacity: 1;
       }
 
+      .video-format-field {
+        display: grid;
+        gap: 6px;
+        position: relative;
+      }
+
+      .video-format-field select {
+        box-sizing: border-box;
+        width: 100%;
+        padding: 12px 36px 12px 14px;
+        border-radius: var(--radius-input);
+        border: 0;
+        background-color: var(--bg);
+        color: var(--text);
+        font-size: 0.92rem;
+        font-family: inherit;
+        appearance: none;
+        -webkit-appearance: none;
+        background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%239aa3b2' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+        background-repeat: no-repeat;
+        background-position: right 14px center;
+        box-shadow:
+          inset 4px 4px 8px var(--neu-inset-dark, rgba(0, 0, 0, 0.35)),
+          inset -4px -4px 8px var(--neu-inset-light, rgba(255, 255, 255, 0.07));
+        transition: box-shadow 0.25s ease;
+      }
+
+      .video-format-field select:not(:disabled) {
+        cursor: pointer;
+      }
+
+      .video-format-field select:disabled {
+        cursor: default;
+        color: transparent;
+      }
+
+      .video-format-field.is-loading::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        border-radius: var(--radius-input);
+        pointer-events: none;
+        animation: format-field-glow 2.4s ease-in-out infinite;
+      }
+
+      .video-format-field.is-loading select {
+        cursor: wait;
+        transition: none;
+        animation: format-select-breathe 2.4s ease-in-out infinite;
+      }
+
+      @keyframes format-field-glow {
+        0%,
+        100% {
+          opacity: 0.45;
+          box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 4%, transparent 96%);
+        }
+
+        50% {
+          opacity: 1;
+          box-shadow:
+            inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent 78%),
+            0 0 20px color-mix(in srgb, var(--accent) 14%, transparent 86%);
+        }
+      }
+
+      @keyframes format-select-breathe {
+        0%,
+        100% {
+          box-shadow:
+            inset 4px 4px 8px var(--neu-inset-dark, rgba(0, 0, 0, 0.35)),
+            inset -4px -4px 8px var(--neu-inset-light, rgba(255, 255, 255, 0.07));
+        }
+
+        50% {
+          box-shadow:
+            inset 7px 7px 14px var(--neu-inset-dark, rgba(0, 0, 0, 0.42)),
+            inset -7px -7px 14px var(--neu-inset-light, rgba(255, 255, 255, 0.1)),
+            0 0 16px color-mix(in srgb, var(--accent) 7%, transparent 93%);
+        }
+      }
+
+      form.is-format-loading button:not(.console-stop) {
+        opacity: calc(var(--button-opacity) * 0.55);
+        cursor: wait;
+      }
+
       form button.all .btn-progress {
         background: var(--button-all-progress-fill);
       }
@@ -935,6 +1047,16 @@
           <section class="console" id="console" aria-live="polite">
             <button
               type="button"
+              id="stop-btn"
+              class="console-stop"
+              disabled
+              title="Stop download"
+              aria-label="Stop download"
+            >
+              Stop
+            </button>
+            <button
+              type="button"
               id="console-copy"
               class="console-copy"
               aria-label="Copy log to clipboard"
@@ -977,13 +1099,22 @@
             ×
           </button>
         </div>
+        <div class="video-format-field" id="video-format-field">
+          <select
+            id="video-format"
+            disabled
+            aria-label="Video format"
+          >
+            <option value="">&#8203;</option>
+          </select>
+        </div>
         <button type="submit" id="mp3-btn" data-kind="mp3">
           <span class="btn-progress" aria-hidden="true"></span>
           <span class="btn-label">Download MP3</span>
         </button>
         <button type="button" id="video-btn" data-kind="video">
           <span class="btn-progress" aria-hidden="true"></span>
-          <span class="btn-label">Download MP4</span>
+          <span class="btn-label">Download Video</span>
         </button>
         <button type="button" id="thumb-btn" data-kind="thumb">
           <span class="btn-progress" aria-hidden="true"></span>
@@ -998,10 +1129,13 @@
 
     <script src="/youtube-url.js"></script>
     <script src="/progress-engine.js"></script>
+    <script src="/video-formats.js"></script>
     <script>
       const form = document.getElementById("download-form");
       const urlInput = document.getElementById("url");
       const urlClearBtn = document.getElementById("url-clear");
+      const videoFormatField = document.getElementById("video-format-field");
+      const videoFormatSelect = document.getElementById("video-format");
       const mp3Btn = document.getElementById("mp3-btn");
       const videoBtn = document.getElementById("video-btn");
       const thumbBtn = document.getElementById("thumb-btn");
@@ -1015,6 +1149,7 @@
       };
       const STEP_KINDS = ["mp3", "video", "thumb"];
       const copyRegion = document.getElementById("copy-region");
+      const stopBtn = document.getElementById("stop-btn");
       const consoleDismiss = document.getElementById("console-dismiss");
       const consoleCopy = document.getElementById("console-copy");
       const consoleLog = document.getElementById("console-log");
@@ -1022,6 +1157,8 @@
       let activeSource = null;
       let finished = false;
       let activeKind = null;
+      let downloadBusy = false;
+      let formatLoading = false;
       let lastProgressLogKey = "";
       let lastDownloadLogAt = 0;
       const DOWNLOAD_LOG_INTERVAL_MS = 5000;
@@ -1150,6 +1287,86 @@
         return `~${minutes}:${String(seconds).padStart(2, "0")} left`;
       }
 
+      function parseDownloadSizeLabel(value) {
+        if (!value) return null;
+        const trimmed = String(value).trim();
+        const embedded = trimmed.match(
+          /^([\d.]+\s*(?:KiB|MiB|GiB|TiB|KB|MB|GB|TB|B))(?:\s|$|·)/i,
+        );
+        if (embedded) {
+          return embedded[1].replace(/\s+/g, "");
+        }
+        if (/^[\d.]+\s*(?:KiB|MiB|GiB|TiB|KB|MB|GB|TB|B)$/i.test(trimmed)) {
+          return trimmed.replace(/\s+/g, "");
+        }
+        return null;
+      }
+
+      function parseDownloadSizeToBytes(label) {
+        const match = label.match(/^([\d.]+)\s*(B|KiB|MiB|GiB|TiB|KB|MB|GB|TB)$/i);
+        if (!match) return null;
+        const amount = Number.parseFloat(match[1]);
+        if (!Number.isFinite(amount) || amount < 0) return null;
+        const units = {
+          B: 1,
+          KIB: 1024,
+          MIB: 1024 ** 2,
+          GIB: 1024 ** 3,
+          TIB: 1024 ** 4,
+          KB: 1000,
+          MB: 1000 ** 2,
+          GB: 1000 ** 3,
+          TB: 1000 ** 4,
+        };
+        const multiplier = units[match[2].toUpperCase()];
+        return multiplier ? amount * multiplier : null;
+      }
+
+      function formatDownloadByteProgress(percent, totalSizeLabel) {
+        const normalized =
+          parseDownloadSizeLabel(totalSizeLabel) ?? totalSizeLabel;
+        const totalBytes = parseDownloadSizeToBytes(normalized);
+        if (totalBytes == null || totalBytes <= 0) return null;
+
+        const clamped = Math.min(100, Math.max(0, percent));
+        const downloadedBytes = (clamped / 100) * totalBytes;
+        const toMb = (bytes) => bytes / (1024 * 1024);
+        const downloadedMb = toMb(downloadedBytes);
+        const totalMb = toMb(totalBytes);
+
+        if (totalMb < 1) {
+          return `${downloadedMb.toFixed(1)}/${totalMb.toFixed(1)}MB`;
+        }
+
+        return `${Math.round(downloadedMb)}/${Math.round(totalMb)}MB`;
+      }
+
+      function downloadConsoleDetail(data) {
+        if (!isDownloadStage(data)) {
+          return data.message ? ` — ${data.message}` : "";
+        }
+
+        const sizeLabel =
+          parseDownloadSizeLabel(data.downloadSizeLabel) ??
+          parseDownloadSizeLabel(data.message);
+
+        if (typeof data.downloadPercent === "number" && sizeLabel) {
+          const formatted = formatDownloadByteProgress(
+            data.downloadPercent,
+            sizeLabel,
+          );
+          if (formatted) {
+            return ` — ${formatted}`;
+          }
+        }
+
+        if (data.message && /^\d+\/\d+(?:\.\d+)?MB$/.test(data.message)) {
+          return ` — ${data.message}`;
+        }
+
+        return data.message ? ` — ${data.message}` : "";
+      }
+
       function isDownloadStage(data) {
         return data.stage === "download" || data.phase === "download";
       }
@@ -1238,9 +1455,49 @@
         showDescriptionPanel();
       }
 
-      function setButtonsDisabled(disabled) {
+      function updateInteractionState() {
+        const disableActions = downloadBusy || formatLoading;
+        form.classList.toggle("is-format-loading", formatLoading);
+        videoFormatField?.classList.toggle("is-loading", formatLoading);
+
         for (const button of actionButtons) {
-          button.disabled = disabled;
+          button.disabled = disableActions;
+        }
+        if (stopBtn) {
+          stopBtn.disabled = !downloadBusy;
+        }
+      }
+
+      function setButtonsDisabled(disabled) {
+        downloadBusy = disabled;
+        updateInteractionState();
+      }
+
+      function setFormatLoading(loading) {
+        formatLoading = loading;
+        updateInteractionState();
+      }
+
+      async function stopDownload() {
+        if (stopBtn?.disabled) return;
+
+        appendLog("Stopping download...");
+        stopBtn.disabled = true;
+
+        try {
+          const res = await fetch("/api/download/stop", { method: "POST" });
+          if (!res.ok) {
+            throw new Error("Stop request failed");
+          }
+        } catch {
+          appendLog("Could not reach server to stop.");
+          if (activeSource && !finished) {
+            finished = true;
+            clearStallWatch();
+            activeSource.close();
+            activeSource = null;
+            setButtonsDisabled(false);
+          }
         }
       }
 
@@ -1290,6 +1547,10 @@
           return;
         }
 
+        if (formatLoading || VideoFormatManager.isLoading()) {
+          return;
+        }
+
         urlInput.value = url;
         updateClearButton();
 
@@ -1312,7 +1573,7 @@
         beginButtonProgress(kind);
 
         const source = new EventSource(
-          `/api/download?url=${encodeURIComponent(url)}&kind=${encodeURIComponent(kind)}`,
+          `/api/download?url=${encodeURIComponent(url)}&kind=${encodeURIComponent(kind)}${VideoFormatManager.getDownloadQuery()}`,
         );
         activeSource = source;
         startStallWatch(source);
@@ -1330,7 +1591,7 @@
             kind === "all" && data.stepIndex
               ? ` (step ${data.stepIndex}/${data.stepTotal})`
               : "";
-          const detail = data.message ? ` — ${data.message}` : "";
+          const detail = downloadConsoleDetail(data);
           const eta =
             isDownloadStage(data) || typeof data.etaSeconds !== "number"
               ? ""
@@ -1353,7 +1614,11 @@
           finished = true;
           clearStallWatch();
           const data = JSON.parse(event.data);
-          showError(data.message || "Download failed.");
+          if (data.message === "Download stopped.") {
+            appendLog("Download stopped.");
+          } else {
+            showError(data.message || "Download failed.");
+          }
           source.close();
           activeSource = null;
           setButtonsDisabled(false);
@@ -1370,14 +1635,26 @@
         };
       }
 
-      urlInput.addEventListener("input", updateClearButton);
+      urlInput.addEventListener("input", () => {
+        updateClearButton();
+        VideoFormatManager.scheduleRefresh(urlInput.value);
+      });
+
+      urlInput.addEventListener("paste", () => {
+        window.requestAnimationFrame(() => {
+          updateClearButton();
+          VideoFormatManager.scheduleRefresh(urlInput.value);
+        });
+      });
 
       urlClearBtn.addEventListener("click", () => {
         urlInput.value = "";
         updateClearButton();
+        VideoFormatManager.scheduleRefresh("");
         urlInput.focus();
       });
 
+      stopBtn.addEventListener("click", stopDownload);
       consoleDismiss.addEventListener("click", dismissConsole);
       consoleCopy.addEventListener("click", copyConsoleLog);
 
@@ -1411,6 +1688,16 @@
       });
 
       updateClearButton();
+
+      VideoFormatManager.init({
+        selectEl: videoFormatSelect,
+        log: appendLog,
+        onLoadingChange: setFormatLoading,
+      });
+
+      if (urlInput.value.trim()) {
+        VideoFormatManager.scheduleRefresh(urlInput.value);
+      }
     </script>
     <script src="/skins.js"></script>
   </body>

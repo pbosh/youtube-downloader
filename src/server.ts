@@ -5,10 +5,12 @@ import {
   downloadMedia,
   ensureOutputDir,
   isValidYouTubeUrl,
+  killActiveDownloadProcesses,
   normalizeYouTubeUrl,
   type DownloadKind,
   type DownloadProgress,
 } from "./download.js";
+import { fetchVideoFormatInfo } from "./formats.js";
 import { getDesktopPath } from "./paths.js";
 import { deleteSkin, listSkins } from "./skins.js";
 import { runStartupChecks } from "./startup.js";
@@ -137,10 +139,50 @@ app.delete("/api/skins/:id", async (req, res) => {
   res.json({ ok: true });
 });
 
+app.get("/api/formats", async (req, res) => {
+  const rawUrl = typeof req.query.url === "string" ? req.query.url.trim() : "";
+
+  try {
+    const info = await fetchVideoFormatInfo(rawUrl);
+    res.json(info);
+  } catch (error) {
+    res.status(400).json({
+      error: error instanceof Error ? error.message : "Could not fetch formats.",
+    });
+  }
+});
+
+function parseVideoFormatQuery(req: express.Request) {
+  const selector =
+    typeof req.query.videoFormatSelector === "string"
+      ? req.query.videoFormatSelector.trim()
+      : "";
+  if (!selector) {
+    return undefined;
+  }
+
+  return {
+    formatSelector: selector,
+    needsConversion: req.query.videoNeedsConversion === "1",
+    label:
+      typeof req.query.videoFormatLabel === "string"
+        ? req.query.videoFormatLabel.trim()
+        : undefined,
+  };
+}
+
+app.post("/api/download/stop", (_req, res) => {
+  const wasRunning = downloadInProgress;
+  killActiveDownloadProcesses();
+  cancelActiveDownload("Download stopped.");
+  res.json({ ok: true, stopped: wasRunning });
+});
+
 app.get("/api/download", async (req, res) => {
   const rawUrl = typeof req.query.url === "string" ? req.query.url.trim() : "";
   const url = rawUrl ? normalizeYouTubeUrl(rawUrl) : "";
   const kind = parseKind(req.query.kind);
+  const videoFormat = parseVideoFormatQuery(req);
 
   if (!url || !isValidYouTubeUrl(url)) {
     beginSse(res);
@@ -206,6 +248,7 @@ app.get("/api/download", async (req, res) => {
           outputDir,
           kind: stepKind,
           signal: abortController.signal,
+          videoFormat: stepKind === "video" ? videoFormat : undefined,
           onProgress: (progress) => {
             const userPercent = readUserPercent(progress);
             const overallUserPercent = resolveOverallUserPercent(
@@ -242,6 +285,7 @@ app.get("/api/download", async (req, res) => {
         outputDir,
         kind,
         signal: abortController.signal,
+        videoFormat: kind === "video" ? videoFormat : undefined,
         onProgress: (progress) => {
           sendSse(res, "progress", {
             ...progress,

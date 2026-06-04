@@ -3,7 +3,7 @@
 Download YouTube media to your **Desktop** with a simple web UI or CLI:
 
 - **MP3** — 320 kbps audio
-- **MP4** — H.264 + AAC in MP4 for universal playback (QuickTime, TVs, editors)
+- **MP4** — downloaded then converted with ffmpeg to H.264 + AAC MP4 for QuickTime and universal playback
 - **Thumbnail** — JPG cover image
 - **All** — MP3, MP4, and thumbnail in one go
 

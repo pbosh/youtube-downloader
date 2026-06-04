@@ -344,6 +344,22 @@ form {
   opacity: 1;
 }
 
+.video-format-field select {
+  border: 0;
+  background-color: var(--neu-base);
+  color: var(--text);
+  font-family: var(--font-family);
+  font-size: var(--subtitle-size);
+  font-weight: var(--subtitle-weight);
+  line-height: var(--subtitle-line-height);
+  box-shadow: var(--input-shadow);
+  transition: box-shadow var(--motion-shadow);
+}
+
+.video-format-field.is-loading select {
+  transition: none;
+}
+
 form button:not(.url-clear) {
   position: relative;
   overflow: hidden;

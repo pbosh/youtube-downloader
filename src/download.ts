@@ -1,7 +1,7 @@
 import { spawn, type ChildProcess } from "node:child_process";
 import { access } from "node:fs/promises";
 import path from "node:path";
-import { resolveFfmpegLocation, resolveYtDlp } from "./binaries.js";
+import { resolveFfmpegBinary, resolveFfmpegLocation, resolveYtDlp } from "./binaries.js";
 import {
   detectPipelineSignal,
   PipelineProgressTracker,
@@ -26,6 +26,8 @@ export interface DownloadProgress {
   percent?: number;
   message?: string;
   etaSeconds?: number;
+  downloadPercent?: number;
+  downloadSizeLabel?: string;
 }
 
 export interface DownloadOptions {
@@ -34,6 +36,11 @@ export interface DownloadOptions {
   kind: DownloadKind;
   onProgress?: (progress: DownloadProgress) => void;
   signal?: AbortSignal;
+  videoFormat?: {
+    formatSelector: string;
+    needsConversion: boolean;
+    label?: string;
+  };
 }
 
 export interface DownloadResult {
@@ -71,7 +78,7 @@ function createStreamLineHandler(onLine: (line: string) => void) {
   return { push, flush };
 }
 const DOWNLOAD_RE =
-  /\[download\]\s+(\d+(?:\.\d+)?)%\s+of\s+~?\s*([\d.]+\s*\w+)/i;
+  /\[download\]\s+(\d+(?:\.\d+)?)%\s+of\s+~?\s*([\d.]+\s*(?:KiB|MiB|GiB|TiB|KB|MB|GB|TB|B))/i;
 const DOWNLOAD_DEST_RE = /\[download\]\s+Destination:\s+(.+)/i;
 const DOWNLOAD_FRAGMENT_RE =
   /\[download\]\s+(?:Downloading\s+)?(?:item\s+)?(\d+) of (\d+)/i;
@@ -104,6 +111,26 @@ function downloadMessage(sizeLabel: string): string {
 }
 
 const durationCache = new Map<string, number>();
+let activeProcess: ChildProcess | null = null;
+
+function trackActiveProcess(proc: ChildProcess) {
+  activeProcess = proc;
+  const clear = () => {
+    if (activeProcess === proc) {
+      activeProcess = null;
+    }
+  };
+  proc.once("close", clear);
+  proc.once("error", clear);
+}
+
+export function killActiveDownloadProcesses(): void {
+  if (activeProcess) {
+    killProcessTree(activeProcess);
+    activeProcess = null;
+  }
+  void clearActiveDownloadPid();
+}
 
 async function findYtDlp(): Promise<string> {
   return resolveYtDlp();
@@ -178,10 +205,110 @@ function killProcessTree(proc: ChildProcess) {
   proc.kill("SIGTERM");
 }
 
+async function convertVideoToQuickTimeMp4(options: {
+  sourcePath: string;
+  signal?: AbortSignal;
+  onLine?: (line: string) => void;
+}): Promise<string> {
+  const ffmpeg = await resolveFfmpegBinary();
+  const sourcePath = path.resolve(options.sourcePath);
+  const dir = path.dirname(sourcePath);
+  const base = path.basename(sourcePath, path.extname(sourcePath));
+  const finalPath = path.join(dir, `${base}.mp4`);
+  const tempPath = path.join(dir, `.${base}.quicktime.tmp.mp4`);
+
+  try {
+    await new Promise<void>((resolve, reject) => {
+    const proc = spawn(
+      ffmpeg,
+      [
+        "-hide_banner",
+        "-nostdin",
+        "-stats_period",
+        "1",
+        "-i",
+        sourcePath,
+        "-map",
+        "0:v:0",
+        "-map",
+        "0:a:0?",
+        "-map_metadata",
+        "0",
+        "-dn",
+        "-sn",
+        "-c:v",
+        "libx264",
+        "-profile:v",
+        "high",
+        "-level",
+        "4.1",
+        "-preset",
+        "veryfast",
+        "-crf",
+        "20",
+        "-pix_fmt",
+        "yuv420p",
+        "-c:a",
+        "aac",
+        "-b:a",
+        "192k",
+        "-ac",
+        "2",
+        "-movflags",
+        "+faststart",
+        "-y",
+        tempPath,
+      ],
+      {
+        stdio: ["ignore", "pipe", "pipe"],
+        detached: process.platform !== "win32",
+      },
+    );
+    trackActiveProcess(proc);
+
+    const handleChunk = (chunk: Buffer) => {
+      const lines = stripAnsi(chunk.toString()).split(/\r?\n/);
+      for (const line of lines) {
+        if (line.trim()) {
+          options.onLine?.(line.trim());
+        }
+      }
+    };
+
+    proc.stderr.on("data", handleChunk);
+    proc.stdout.on("data", handleChunk);
+
+    waitForProcessExit(proc, options.signal, () => null, "ffmpeg")
+      .then(resolve)
+      .catch(reject);
+    });
+
+    const { unlink, rename } = await import("node:fs/promises");
+
+    if (path.resolve(sourcePath) !== path.resolve(finalPath)) {
+      await unlink(sourcePath).catch(() => {});
+    } else {
+      await unlink(sourcePath).catch(() => {});
+    }
+
+    if (path.resolve(finalPath) !== path.resolve(tempPath)) {
+      await unlink(finalPath).catch(() => {});
+    }
+
+    await rename(tempPath, finalPath);
+    return finalPath;
+  } catch (error) {
+    const { unlink } = await import("node:fs/promises");
+    await unlink(tempPath).catch(() => {});
+    throw error;
+  }
+}
+
 function waitForProcessExit(
   proc: ChildProcess,
   signal?: AbortSignal,
   getExitError?: () => Error | null,
+  processName = "yt-dlp",
 ): Promise<void> {
   return new Promise((resolve, reject) => {
     let settled = false;
@@ -226,7 +353,7 @@ function waitForProcessExit(
         return;
       }
 
-      finish(new Error(`yt-dlp exited with code ${code ?? "unknown"}`));
+      finish(new Error(`${processName} exited with code ${code ?? "unknown"}`));
     };
 
     if (signal?.aborted) {
@@ -245,6 +372,7 @@ function buildArgs(
   url: string,
   outputTemplate: string,
   ffmpegLocation?: string,
+  videoFormat?: DownloadOptions["videoFormat"],
 ): string[] {
   const common = [
     url,
@@ -283,20 +411,18 @@ function buildArgs(
   }
 
   if (kind === "video") {
+    const formatSelector =
+      videoFormat?.formatSelector ??
+      "bv*[vcodec^=avc1]+ba[acodec^=mp4a]/best[vcodec^=avc1]/b";
+
     return [
       ...withFfmpeg.slice(0, 3),
-      "-S",
-      "vcodec:h264,res,acodec:aac",
       "-f",
-      "bv*+ba/b",
+      formatSelector,
       "--merge-output-format",
       "mp4",
-      "--recode-video",
-      "mp4",
-      "--postprocessor-args",
-      "VideoConvertor+ffmpeg:-c:v libx264 -preset medium -crf 20 -pix_fmt yuv420p -c:a aac -b:a 192k -movflags +faststart -stats_period 1",
       "--add-metadata",
-      "--embed-thumbnail",
+      "--write-thumbnail",
       ...withFfmpeg.slice(3),
     ];
   }
@@ -317,7 +443,13 @@ export async function downloadMedia(
   const ytDlp = await findYtDlp();
   const ffmpegLocation = await resolveFfmpegLocation();
   const outputTemplate = path.join(options.outputDir, "%(title)s.%(ext)s");
-  const args = buildArgs(options.kind, options.url, outputTemplate, ffmpegLocation);
+  const args = buildArgs(
+    options.kind,
+    options.url,
+    outputTemplate,
+    ffmpegLocation,
+    options.videoFormat,
+  );
 
   const startedAt = Date.now();
   let sawByteProgress = false;
@@ -339,6 +471,8 @@ export async function downloadMedia(
       userPercent: payload.userPercent,
       etaSeconds: payload.etaSeconds,
       message: payload.message,
+      downloadPercent: payload.downloadPercent,
+      downloadSizeLabel: payload.downloadSizeLabel,
     });
   });
 
@@ -349,6 +483,7 @@ export async function downloadMedia(
       env: { ...process.env, PYTHONUNBUFFERED: "1" },
       detached: process.platform !== "win32",
     });
+    trackActiveProcess(proc);
 
     if (proc.pid != null) {
       void registerActiveDownloadPid(proc.pid);
@@ -503,6 +638,24 @@ export async function downloadMedia(
   }
 
   await access(outputPath);
+
+  if (options.kind === "video" && options.videoFormat?.needsConversion) {
+    await resolveFfmpegBinary();
+    tracker.noteMerge("Converting to H.264 with ffmpeg...");
+    outputPath = await convertVideoToQuickTimeMp4({
+      sourcePath: outputPath,
+      signal: options.signal,
+      onLine: (line) => {
+        const ffmpegTime = line.match(
+          /time=(\d+:\d+:\d+(?:\.\d+)?|\d+:\d+(?:\.\d+)?)/,
+        );
+        if (ffmpegTime) {
+          tracker.noteFfmpegProgress(ffmpegTime[1]!, "merge");
+        }
+      },
+    });
+    await access(outputPath);
+  }
 
   tracker.complete((payload) => {
     options.onProgress?.({
